@@ -1,0 +1,25 @@
+{
+  "name": "beicvs",
+  "version": "1.0.0",
+  "description": "Blockchain-Enhanced Insurance Claim Verification System",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js --network hardhat",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "node": "hardhat node"
+  },
+  "keywords": [
+    "blockchain",
+    "insurance",
+    "ethereum",
+    "hardhat"
+  ],
+  "author": "Leong Seng Khuan (TP070856)",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.2",
+    "dotenv": "^17.4.2",
+    "hardhat": "^2.29.1"
+  }
+}
