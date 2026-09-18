@@ -24,7 +24,7 @@ export default function AdminOverview() {
   }, [users]);
 
   const claimsByStatus = useMemo(() => {
-    const counts: Record<string, number> = { Pending: 0, UnderReview: 0, Approved: 0, Rejected: 0 };
+    const counts: Record<string, number> = { Submitted: 0, UnderReview: 0, Approved: 0, Rejected: 0, Settled: 0 };
     claims.forEach((c) => (counts[c.status] = (counts[c.status] || 0) + 1));
     return counts;
   }, [claims]);
@@ -38,7 +38,7 @@ export default function AdminOverview() {
     return counts;
   }, [claims]);
 
-  const unassignedPending = claims.filter((c) => c.status === "Pending").length;
+  const unassignedPending = claims.filter((c) => c.status === "Submitted").length;
 
   return (
     <div>

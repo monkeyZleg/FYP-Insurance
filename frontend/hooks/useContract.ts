@@ -6,18 +6,20 @@ const CLAIM_REGISTRY_ADDRESS =
   process.env.NEXT_PUBLIC_CLAIM_REGISTRY_ADDRESS || ethers.ZeroAddress;
 
 const ClaimRegistryABI = [
-  "function submitClaim(bytes32 documentHash, string calldata claimType) external returns (bytes32)",
-  "function assignClaim(bytes32 claimId, address verifier) external",
-  "function updateClaimStatus(bytes32 claimId, uint8 newStatus, string calldata remark) external",
-  "function getClaim(bytes32 claimId) external view returns (tuple(bytes32 claimId, address policyHolder, bytes32 documentHash, string claimType, uint256 submittedAt, uint8 status, address assignedVerifier, string verifierRemark, uint256 lastUpdatedAt))",
-  "function verifyDocumentHash(bytes32 claimId, bytes32 hashToCheck) external view returns (bool)",
-  "function getClaimsByPolicyholder(address wallet) external view returns (bytes32[])",
-  "function getAllClaimIds() external view returns (bytes32[])",
-  "event ClaimSubmitted(bytes32 indexed claimId, address indexed policyHolder, bytes32 documentHash, string claimType, uint256 timestamp)",
-  "event ClaimAssigned(bytes32 indexed claimId, address indexed verifier, uint256 timestamp)",
-  "event ClaimStatusUpdated(bytes32 indexed claimId, uint8 newStatus, address indexed updatedBy, string remark, uint256 timestamp)",
+  "function assignVerifier(uint256 claimId, address verifier) external",
+  "function decideClaim(uint256 claimId, bool approve, uint8 reasonCode, bytes32 remarkHash) external",
+  "function settleClaim(uint256 claimId, bytes32 payoutRefHash) external",
+  "function flagClaim(uint256 claimId, bytes32 findingHash) external",
+  "function getClaim(uint256 claimId) external view returns (tuple(bytes32 holderId, uint256 policyId, uint8 claimType, uint64 incidentDate, uint64 submittedAt, bytes32 detailsHash, bytes32[] docHashes, address assignedVerifier, address decidedBy, uint64 decidedAt, bytes32 remarkHash, uint8 reasonCode, bool flagged, uint8 status))",
+  "function verifyDocument(uint256 claimId, bytes32 docHash) external view returns (bool)",
+  "event ClaimSubmitted(uint256 indexed claimId, uint256 indexed policyId, bytes32 indexed holderId, bytes32[] docHashes, bytes32 detailsHash)",
+  "event VerifierAssigned(uint256 indexed claimId, address indexed verifier)",
+  "event ClaimDecided(uint256 indexed claimId, bool approve, address indexed verifier, uint8 reasonCode, bytes32 remarkHash)",
+  "event ClaimSettled(uint256 indexed claimId, bytes32 payoutRefHash)",
+  "event ClaimFlagged(uint256 indexed claimId, address indexed auditor, bytes32 findingHash)",
 ];
 
+/** Staff-only (verifier / admin / auditor): signs ClaimRegistry writes with their own MetaMask wallet. */
 export function useClaimRegistry() {
   const { signer } = useMetaMask();
 
@@ -30,44 +32,65 @@ export function useClaimRegistry() {
     );
   }
 
-  async function submitClaim(documentHashHex: string, claimType: string) {
+  function hashText(text: string): string {
+    return ethers.keccak256(ethers.toUtf8Bytes(text));
+  }
+
+  function randomRefHash(): string {
+    return ethers.hexlify(ethers.randomBytes(32));
+  }
+
+  async function assignVerifier(claimId: string | number, verifierAddress: string) {
     const contract = getContract();
-    const tx = await contract.submitClaim(documentHashHex, claimType);
+    const tx = await contract.assignVerifier(claimId, verifierAddress);
     return await tx.wait();
   }
 
-  async function getClaim(claimId: string) {
+  async function decideClaim(
+    claimId: string | number,
+    approve: boolean,
+    reasonCode: number,
+    remark: string
+  ) {
+    const contract = getContract();
+    const remarkHash = remark ? hashText(remark) : randomRefHash();
+    const tx = await contract.decideClaim(claimId, approve, reasonCode, remarkHash);
+    return { receipt: await tx.wait(), remarkHash };
+  }
+
+  async function settleClaim(claimId: string | number, payoutRefHash?: string) {
+    const contract = getContract();
+    const hash = payoutRefHash || randomRefHash();
+    const tx = await contract.settleClaim(claimId, hash);
+    return { receipt: await tx.wait(), payoutRefHash: hash };
+  }
+
+  async function flagClaim(claimId: string | number, findingText?: string) {
+    const contract = getContract();
+    const findingHash = findingText ? hashText(findingText) : randomRefHash();
+    const tx = await contract.flagClaim(claimId, findingHash);
+    return { receipt: await tx.wait(), findingHash };
+  }
+
+  async function getClaim(claimId: string | number) {
     const contract = getContract();
     return await contract.getClaim(claimId);
   }
 
-  async function verifyDocumentHash(claimId: string, hash: string) {
+  async function verifyDocument(claimId: string | number, docHash: string) {
     const contract = getContract();
-    return await contract.verifyDocumentHash(claimId, hash);
-  }
-
-  async function assignClaimOnChain(claimId: string, verifierAddress: string) {
-    const contract = getContract();
-    const tx = await contract.assignClaim(claimId, verifierAddress);
-    return await tx.wait();
-  }
-
-  async function updateClaimStatus(
-    claimId: string,
-    newStatus: 1 | 2 | 3,
-    remark: string
-  ) {
-    const contract = getContract();
-    const tx = await contract.updateClaimStatus(claimId, newStatus, remark);
-    return await tx.wait();
+    return await contract.verifyDocument(claimId, docHash);
   }
 
   return {
-    submitClaim,
+    assignVerifier,
+    decideClaim,
+    settleClaim,
+    flagClaim,
     getClaim,
-    verifyDocumentHash,
-    assignClaimOnChain,
-    updateClaimStatus,
+    verifyDocument,
+    hashText,
+    randomRefHash,
     getContract,
   };
 }

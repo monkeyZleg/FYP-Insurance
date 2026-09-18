@@ -2,21 +2,21 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRole } from "@/hooks/useRole";
-import { refreshAll } from "@/lib/policyEngine";
+import { buildInstalmentSchedule, canRenew, myPolicies } from "@/lib/policyApi";
 import { POLICY_TYPE_CONFIG } from "@/constants/policyPlans";
 import PolicyStatusBadge from "@/components/policy/PolicyStatusBadge";
-import { canRenew } from "@/lib/policyEngine";
-import type { PolicyRecord } from "@/types";
+import type { PolicyRow } from "@/types";
 
 export default function MyPoliciesPage() {
-  const { wallet } = useRole();
-  const [policies, setPolicies] = useState<PolicyRecord[]>([]);
+  const { token } = useRole();
+  const [policies, setPolicies] = useState<PolicyRow[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (wallet) setPolicies(refreshAll(wallet));
-  }, [wallet]);
+    if (!token) return;
+
+    myPolicies(token).then(setPolicies).catch(() => setPolicies([]));
+  }, [token]);
 
   return (
     <div>
@@ -41,27 +41,28 @@ export default function MyPoliciesPage() {
 
       <div className="space-y-4">
         {policies.map((p) => {
-          const cfg = POLICY_TYPE_CONFIG[p.policyType];
+          const cfg = POLICY_TYPE_CONFIG[p.policy_type];
           const isOpen = expanded === p.id;
+          const instalments = buildInstalmentSchedule(p);
           return (
             <div key={p.id} className="bg-white rounded-xl shadow overflow-hidden">
               <div className="p-6 flex items-start justify-between gap-4 flex-wrap">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span>{cfg.icon}</span>
-                    <span className="font-mono text-xs text-gray-400">{p.policyNumber}</span>
+                    <span className="font-mono text-xs text-gray-400">{p.policy_number}</span>
                     <PolicyStatusBadge status={p.status} />
                   </div>
-                  <h3 className="font-semibold text-lg">{p.planName}</h3>
+                  <h3 className="font-semibold text-lg">{p.plan_name}</h3>
                   <p className="text-xs text-gray-400">
-                    {p.startDate} → {p.endDate}
+                    {p.start_date} → {p.end_date}
                   </p>
-                  {p.nextDueDate && (
-                    <p className="text-xs text-amber-600 mt-1">Next due: {p.nextDueDate}</p>
+                  {p.pay_deadline && (
+                    <p className="text-xs text-red-600 mt-1">Payment due by: {p.pay_deadline}</p>
                   )}
-                  {p.graceDeadline && (
-                    <p className="text-xs text-red-600 mt-1">Grace period ends: {p.graceDeadline}</p>
-                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    {p.paid_instalments} of {p.total_instalments} instalment(s) paid
+                  </p>
                 </div>
                 <div className="flex gap-2">
                   {p.status === "PendingPayment" && (
@@ -99,20 +100,19 @@ export default function MyPoliciesPage() {
 
               {isOpen && (
                 <div className="border-t bg-gray-50 p-6 space-y-4">
-                  {p.instalments.length > 0 && (
+                  {instalments.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-gray-500 mb-2">Payment Schedule</p>
+                      <p className="text-xs font-medium text-gray-500 mb-2">Payment Schedule (approximate)</p>
                       <div className="bg-white rounded-lg overflow-hidden border">
                         <table className="w-full text-sm">
                           <tbody>
-                            {p.instalments.map((i) => (
+                            {instalments.map((i) => (
                               <tr key={i.index} className="border-b last:border-0">
                                 <td className="px-3 py-2">#{i.index}</td>
                                 <td className="px-3 py-2">{i.dueDate}</td>
-                                <td className="px-3 py-2">RM {i.amount.toLocaleString()}</td>
                                 <td className="px-3 py-2">
                                   {i.paid ? (
-                                    <span className="text-green-600 font-medium">Paid {i.paidDate}</span>
+                                    <span className="text-green-600 font-medium">Paid</span>
                                   ) : (
                                     <span className="text-gray-400">Due</span>
                                   )}
@@ -125,21 +125,10 @@ export default function MyPoliciesPage() {
                     </div>
                   )}
 
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 mb-2">Payment History</p>
-                    {p.payments.length === 0 ? (
-                      <p className="text-sm text-gray-400">No payments recorded yet.</p>
-                    ) : (
-                      <ul className="text-sm space-y-1">
-                        {p.payments.map((pay) => (
-                          <li key={pay.id} className="flex justify-between text-gray-600">
-                            <span>
-                              {new Date(pay.date).toLocaleDateString()} — {pay.note}
-                            </span>
-                            <span className="font-medium">RM {pay.amount.toLocaleString()}</span>
-                          </li>
-                        ))}
-                      </ul>
+                  <div className="text-sm text-gray-500">
+                    Premium RM {p.premium.toLocaleString()} — {p.payment_mode}
+                    {p.create_tx_hash && (
+                      <span className="block font-mono text-xs mt-1 truncate">Tx: {p.create_tx_hash}</span>
                     )}
                   </div>
                 </div>

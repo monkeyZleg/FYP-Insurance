@@ -14,11 +14,11 @@ export default function TopBar({ title }: { title: string }) {
         <RoleBadge role={role} />
       </div>
       <div className="flex items-center gap-3">
-        <NetworkIndicator />
+        {role !== "policyholder" && <NetworkIndicator />}
         {userName && (
           <span className="hidden sm:inline text-sm text-gray-500">{userName}</span>
         )}
-        <WalletConnect />
+        {role !== "policyholder" && <WalletConnect />}
         <button
           onClick={logout}
           className="text-sm text-gray-400 hover:text-gray-700"

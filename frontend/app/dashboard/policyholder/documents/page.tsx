@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiFetch } from "@/lib/api";
+import { apiFetchAuth } from "@/lib/api";
 import { useRole } from "@/hooks/useRole";
 import HashDisplay from "@/components/blockchain/HashDisplay";
 import type { Claim, Document as ClaimDocument } from "@/types";
@@ -11,18 +11,18 @@ interface DocRow extends ClaimDocument {
 }
 
 export default function MyDocumentsPage() {
-  const { wallet } = useRole();
+  const { token } = useRole();
   const [rows, setRows] = useState<DocRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!wallet) return;
+    if (!token) return;
     (async () => {
       try {
-        const { claims } = await apiFetch("/api/claims/my", {}, wallet);
+        const { claims } = await apiFetchAuth("/api/claims/my", {}, token);
         const results = await Promise.all(
           (claims || []).map((c: Claim) =>
-            apiFetch(`/api/documents/${c.id}`, {}, wallet)
+            apiFetchAuth(`/api/documents/${c.id}`, {}, token)
               .then((d) => (d.documents || []).map((doc: ClaimDocument) => ({ ...doc, claim: c })))
               .catch(() => [])
           )
@@ -32,7 +32,7 @@ export default function MyDocumentsPage() {
         setLoading(false);
       }
     })();
-  }, [wallet]);
+  }, [token]);
 
   return (
     <div>

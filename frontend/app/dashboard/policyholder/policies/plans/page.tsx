@@ -1,14 +1,25 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { POLICY_PLANS, POLICY_TYPE_CONFIG, getPlansByType } from "@/constants/policyPlans";
+import { listPlans } from "@/lib/policyApi";
+import { POLICY_TYPE_CONFIG } from "@/constants/policyPlans";
 import PlanCard from "@/components/policy/PlanCard";
-import type { PolicyPlanType } from "@/types";
+import type { PolicyPlan, PolicyPlanType } from "@/types";
 
 export default function PlansPage() {
   const router = useRouter();
+  const [allPlans, setAllPlans] = useState<PolicyPlan[]>([]);
   const [typeFilter, setTypeFilter] = useState<PolicyPlanType | "All">("All");
-  const plans = typeFilter === "All" ? POLICY_PLANS : getPlansByType(typeFilter);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+
+    listPlans()
+      .then(setAllPlans)
+      .catch(() => setError("Could not load plans. Please try again later."));
+  }, []);
+
+  const plans = typeFilter === "All" ? allPlans : allPlans.filter((p) => p.type === typeFilter);
 
   return (
     <div>
@@ -16,6 +27,8 @@ export default function PlansPage() {
       <p className="text-sm text-gray-500 mb-6">
         Sample plans for demonstration only — not real insurer products or pricing.
       </p>
+
+      {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
       <div className="flex gap-2 mb-6">
         <button
@@ -42,9 +55,9 @@ export default function PlansPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {plans.map((plan) => (
           <PlanCard
-            key={plan.id}
+            key={plan.planId}
             plan={plan}
-            onSelect={() => router.push(`/dashboard/policyholder/policies/purchase?planId=${plan.id}`)}
+            onSelect={() => router.push(`/dashboard/policyholder/policies/purchase?planId=${plan.planId}`)}
           />
         ))}
       </div>

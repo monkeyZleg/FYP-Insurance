@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { apiFetch } from "@/lib/api";
+import { apiFetchAuth } from "@/lib/api";
 import { useRole } from "@/hooks/useRole";
 import { INSURANCE_TYPES } from "@/constants/insurance";
 import InsuranceTypeCard from "@/components/insurance/InsuranceTypeCard";
@@ -14,14 +14,14 @@ import { useRouter } from "next/navigation";
 type Filter = "All" | ClaimStatus;
 
 export default function PolicyholderHome() {
-  const { wallet } = useRole();
+  const { token } = useRole();
   const router = useRouter();
   const [claims, setClaims] = useState<Claim[]>([]);
   const [filter, setFilter] = useState<Filter>("All");
 
-  async function loadClaims(w: string) {
+  async function loadClaims(t: string) {
     try {
-      const data = await apiFetch("/api/claims/my", {}, w);
+      const data = await apiFetchAuth("/api/claims/my", {}, t);
       setClaims(data.claims || []);
     } catch {
       setClaims([]);
@@ -30,14 +30,14 @@ export default function PolicyholderHome() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (wallet) loadClaims(wallet);
-  }, [wallet]);
+    if (token) loadClaims(token);
+  }, [token]);
 
   const stats = useMemo(
     () => ({
       total: claims.length,
-      pending: claims.filter((c) => c.status === "Pending" || c.status === "UnderReview").length,
-      approved: claims.filter((c) => c.status === "Approved").length,
+      pending: claims.filter((c) => c.status === "Submitted" || c.status === "UnderReview").length,
+      approved: claims.filter((c) => c.status === "Approved" || c.status === "Settled").length,
       rejected: claims.filter((c) => c.status === "Rejected").length,
     }),
     [claims]
@@ -83,7 +83,7 @@ export default function PolicyholderHome() {
       </div>
 
       <div className="flex gap-2 mb-4">
-        {(["All", "Pending", "Approved", "Rejected"] as Filter[]).map((f) => (
+        {(["All", "Submitted", "UnderReview", "Approved", "Rejected", "Settled"] as Filter[]).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}

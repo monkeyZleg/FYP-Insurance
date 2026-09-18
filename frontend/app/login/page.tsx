@@ -1,13 +1,13 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMetaMask } from "@/hooks/useMetaMask";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiFetchAuth } from "@/lib/api";
 import WalletConnect from "@/components/shared/WalletConnect";
 import type { UserRole } from "@/types";
 
-const DEMO_ROLES: { role: UserRole; label: string; icon: string }[] = [
-  { role: "policyholder", label: "Policyholder", icon: "🧑‍💼" },
+const DEMO_STAFF_ROLES: { role: UserRole; label: string; icon: string }[] = [
   { role: "verifier", label: "Claim Verifier", icon: "🔎" },
   { role: "admin", label: "Insurance Admin", icon: "🗂️" },
   { role: "auditor", label: "Auditor", icon: "🧾" },
@@ -16,11 +16,19 @@ const DEMO_ROLES: { role: UserRole; label: string; icon: string }[] = [
 export default function LoginPage() {
   const { address } = useMetaMask();
   const router = useRouter();
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<"policyholder" | "staff">("policyholder");
 
-  function previewAs(role: UserRole) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [phError, setPhError] = useState("");
+  const [phLoading, setPhLoading] = useState(false);
+
+  const [staffError, setStaffError] = useState("");
+  const [staffLoading, setStaffLoading] = useState(false);
+
+  function previewAsStaff(role: UserRole) {
     localStorage.removeItem("jwt");
+    localStorage.removeItem("holderId");
     localStorage.setItem("role", role);
     localStorage.setItem("wallet", address || "0x0000000000000000000000000000000000demo");
     localStorage.setItem("userName", `Demo ${role}`);
@@ -28,13 +36,38 @@ export default function LoginPage() {
     router.push(`/dashboard/${role}`);
   }
 
-  async function handleLogin() {
+  async function handlePolicyholderLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setPhLoading(true);
+    setPhError("");
+    try {
+      const data = await apiFetchAuth("/api/auth/policyholder/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+
+      localStorage.setItem("jwt", data.token);
+      localStorage.setItem("role", data.role);
+      localStorage.removeItem("wallet");
+      localStorage.setItem("userName", data.name || "");
+      localStorage.setItem("userId", data.userId || "");
+      localStorage.setItem("holderId", data.holderId || "");
+
+      router.push("/dashboard/policyholder");
+    } catch (err) {
+      setPhError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setPhLoading(false);
+    }
+  }
+
+  async function handleStaffLogin() {
     if (!address) {
-      setError("Please connect your wallet first.");
+      setStaffError("Please connect your wallet first.");
       return;
     }
-    setLoading(true);
-    setError("");
+    setStaffLoading(true);
+    setStaffError("");
 
     try {
       const data = await apiFetch("/api/auth/login", {
@@ -47,66 +80,134 @@ export default function LoginPage() {
       localStorage.setItem("wallet", address);
       localStorage.setItem("userName", data.name || "");
       localStorage.setItem("userId", data.userId || "");
+      localStorage.removeItem("holderId");
 
       router.push(`/dashboard/${data.role}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setStaffError(err instanceof Error ? err.message : "Login failed");
     } finally {
-      setLoading(false);
+      setStaffLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
       <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
         <h1 className="text-2xl font-bold text-center mb-2">BEICVS Login</h1>
-        <p className="text-gray-500 text-center text-sm mb-8">
-          Connect your MetaMask wallet to authenticate
+        <p className="text-gray-500 text-center text-sm mb-6">
+          Sign in as a policyholder, or as staff with your wallet
         </p>
 
-        <div className="flex justify-center mb-6">
-          <WalletConnect />
+        <div className="grid grid-cols-2 gap-2 mb-6 bg-gray-100 rounded-lg p-1">
+          <button
+            onClick={() => setTab("policyholder")}
+            className={`text-sm font-medium py-2 rounded-md transition-colors ${
+              tab === "policyholder" ? "bg-white shadow text-blue-700" : "text-gray-500"
+            }`}
+          >
+            🧑‍💼 Policyholder
+          </button>
+          <button
+            onClick={() => setTab("staff")}
+            className={`text-sm font-medium py-2 rounded-md transition-colors ${
+              tab === "staff" ? "bg-white shadow text-blue-700" : "text-gray-500"
+            }`}
+          >
+            🗂️ Staff
+          </button>
         </div>
 
-        {address && (
-          <div className="space-y-4">
-            <p className="text-sm text-center text-gray-600">
-              Connected as:{" "}
-              <span className="font-mono font-medium">
-                {address.slice(0, 6)}...{address.slice(-4)}
-              </span>
-            </p>
-            <button
-              onClick={handleLogin}
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              {loading ? "Logging in..." : "Login with Wallet"}
-            </button>
-          </div>
-        )}
-
-        {error && (
-          <p className="text-red-500 text-sm text-center mt-4">{error}</p>
-        )}
-
-        <div className="mt-8 pt-6 border-t">
-          <p className="text-xs text-gray-400 text-center mb-3">
-            No registered wallet yet? Preview a dashboard (demo data only)
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {DEMO_ROLES.map((r) => (
+        {tab === "policyholder" && (
+          <div>
+            <form onSubmit={handlePolicyholderLogin} className="space-y-4">
+              <div>
+                <label className="block text-sm mb-1 font-medium">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full border rounded px-3 py-2"
+                  placeholder="you@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1 font-medium">Password</label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full border rounded px-3 py-2"
+                  placeholder="••••••••"
+                />
+              </div>
+              {phError && <p className="text-red-500 text-sm">{phError}</p>}
               <button
-                key={r.role}
-                onClick={() => previewAs(r.role)}
-                className="flex items-center gap-2 justify-center text-sm border rounded-lg py-2 px-3 hover:bg-gray-50 text-gray-600"
+                type="submit"
+                disabled={phLoading}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
-                <span>{r.icon}</span>
-                {r.label}
+                {phLoading ? "Logging in..." : "Login"}
               </button>
-            ))}
+            </form>
+            <p className="text-sm text-center text-gray-500 mt-4">
+              New here?{" "}
+              <Link href="/register" className="text-blue-600 hover:underline font-medium">
+                Create an account
+              </Link>
+            </p>
           </div>
-        </div>
+        )}
+
+        {tab === "staff" && (
+          <div>
+            <p className="text-gray-500 text-center text-sm mb-6">
+              Connect your MetaMask wallet to authenticate as a verifier, admin or auditor
+            </p>
+            <div className="flex justify-center mb-6">
+              <WalletConnect />
+            </div>
+
+            {address && (
+              <div className="space-y-4">
+                <p className="text-sm text-center text-gray-600">
+                  Connected as:{" "}
+                  <span className="font-mono font-medium">
+                    {address.slice(0, 6)}...{address.slice(-4)}
+                  </span>
+                </p>
+                <button
+                  onClick={handleStaffLogin}
+                  disabled={staffLoading}
+                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {staffLoading ? "Logging in..." : "Login with Wallet"}
+                </button>
+              </div>
+            )}
+
+            {staffError && <p className="text-red-500 text-sm text-center mt-4">{staffError}</p>}
+
+            <div className="mt-8 pt-6 border-t">
+              <p className="text-xs text-gray-400 text-center mb-3">
+                No registered wallet yet? Preview a staff dashboard (demo data only)
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {DEMO_STAFF_ROLES.map((r) => (
+                  <button
+                    key={r.role}
+                    onClick={() => previewAsStaff(r.role)}
+                    className="flex items-center gap-2 justify-center text-sm border rounded-lg py-2 px-3 hover:bg-gray-50 text-gray-600"
+                  >
+                    <span>{r.icon}</span>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

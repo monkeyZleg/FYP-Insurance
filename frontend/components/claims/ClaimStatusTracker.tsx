@@ -11,31 +11,37 @@ export default function ClaimStatusTracker({ status }: { status: string }) {
   const steps: Step[] = [
     {
       label: "Submitted",
-      description: "Claim recorded on blockchain",
-      done: ["Pending", "UnderReview", "Approved", "Rejected"].includes(status),
-      active: status === "Pending",
+      description: "Claim recorded",
+      done: ["Submitted", "UnderReview", "Approved", "Rejected", "Settled"].includes(status),
+      active: status === "Submitted",
     },
     {
       label: "Under Review",
       description: "Verifier assigned and reviewing",
-      done: ["UnderReview", "Approved", "Rejected"].includes(status),
+      done: ["UnderReview", "Approved", "Rejected", "Settled"].includes(status),
       active: status === "UnderReview",
     },
     {
       label: "Decision",
       description:
-        status === "Approved"
+        status === "Approved" || status === "Settled"
           ? "Claim approved"
           : status === "Rejected"
             ? "Claim rejected"
             : "Awaiting decision",
-      done: ["Approved", "Rejected"].includes(status),
-      active: ["Approved", "Rejected"].includes(status),
+      done: ["Approved", "Rejected", "Settled"].includes(status),
+      active: status === "Approved" || status === "Rejected",
+    },
+    {
+      label: "Settled",
+      description: status === "Settled" ? "Payout settled" : "Awaiting settlement",
+      done: status === "Settled",
+      active: status === "Settled",
     },
   ];
 
   return (
-    <div className="flex items-center gap-0">
+    <div className="flex items-center gap-0 flex-wrap">
       {steps.map((step, i) => (
         <div key={i} className="flex items-center">
           <div className="flex flex-col items-center">

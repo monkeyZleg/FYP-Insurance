@@ -8,14 +8,17 @@ import type { Claim, User } from "@/types";
 
 export default function AssignClaimsPage() {
   const { wallet } = useRole();
-  const { assignClaimOnChain } = useClaimRegistry();
+  const { assignVerifier, settleClaim } = useClaimRegistry();
+  const [view, setView] = useState<"assign" | "settle">("assign");
   const [claims, setClaims] = useState<Claim[]>([]);
+  const [approvedClaims, setApprovedClaims] = useState<Claim[]>([]);
   const [verifiers, setVerifiers] = useState<User[]>([]);
   const [modalClaim, setModalClaim] = useState<Claim | null>(null);
   const [selectedVerifier, setSelectedVerifier] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkVerifier, setBulkVerifier] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!wallet) return;
@@ -28,28 +31,34 @@ export default function AssignClaimsPage() {
 
   async function loadClaims() {
     const data = await apiFetch("/api/claims/all", {}, wallet);
-    setClaims((data.claims || []).filter((c: Claim) => c.status === "Pending"));
+    setClaims((data.claims || []).filter((c: Claim) => c.status === "Submitted"));
+    setApprovedClaims((data.claims || []).filter((c: Claim) => c.status === "Approved"));
   }
 
   async function assignOne(claim: Claim, verifierId: string) {
     const verifier = verifiers.find((v) => v.id === verifierId);
-    if (!verifier) return;
-    if (claim.blockchain_claim_id) {
-      await assignClaimOnChain(claim.blockchain_claim_id, verifier.wallet_address).catch(() => null);
-    }
-    await apiFetch(`/api/claims/${claim.id}/assign`, { method: "PATCH", body: JSON.stringify({ verifierId }) }, wallet);
+    if (!verifier || !verifier.wallet_address) throw new Error("Verifier wallet address not found");
+    if (!claim.on_chain_claim_id) throw new Error("This claim has not been recorded on-chain yet.");
+    const receipt = await assignVerifier(claim.on_chain_claim_id, verifier.wallet_address);
+    const txHash = receipt?.hash || receipt?.transactionHash || "";
+    await apiFetch(
+      `/api/claims/${claim.id}/assign`,
+      { method: "PATCH", body: JSON.stringify({ verifierId, txHash }) },
+      wallet
+    );
   }
 
   async function handleAssign() {
     if (!modalClaim || !selectedVerifier) return;
     setProcessing(true);
+    setError("");
     try {
       await assignOne(modalClaim, selectedVerifier);
       setModalClaim(null);
       setSelectedVerifier("");
       await loadClaims();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Assignment failed");
+      setError(err instanceof Error ? err.message : "Assignment failed");
     } finally {
       setProcessing(false);
     }
@@ -58,6 +67,7 @@ export default function AssignClaimsPage() {
   async function handleBulkAssign() {
     if (!bulkVerifier || selected.length === 0) return;
     setProcessing(true);
+    setError("");
     try {
       for (const id of selected) {
         const claim = claims.find((c) => c.id === id);
@@ -67,7 +77,27 @@ export default function AssignClaimsPage() {
       setBulkVerifier("");
       await loadClaims();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Bulk assignment failed");
+      setError(err instanceof Error ? err.message : "Bulk assignment failed");
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  async function handleSettle(claim: Claim) {
+    setProcessing(true);
+    setError("");
+    try {
+      if (!claim.on_chain_claim_id) throw new Error("This claim has not been recorded on-chain yet.");
+      const { receipt, payoutRefHash } = await settleClaim(claim.on_chain_claim_id);
+      const txHash = receipt?.hash || receipt?.transactionHash || "";
+      await apiFetch(
+        `/api/claims/${claim.id}/settle`,
+        { method: "PATCH", body: JSON.stringify({ txHash, payoutRefHash }) },
+        wallet
+      );
+      await loadClaims();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Settlement failed");
     } finally {
       setProcessing(false);
     }
@@ -75,88 +105,152 @@ export default function AssignClaimsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Assign Pending Claims</h1>
-
-      {selected.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex items-center gap-3 flex-wrap">
-          <span className="text-sm font-medium">{selected.length} selected</span>
-          <select
-            value={bulkVerifier}
-            onChange={(e) => setBulkVerifier(e.target.value)}
-            className="border rounded px-3 py-1.5 text-sm"
-          >
-            <option value="">Select verifier...</option>
-            {verifiers.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.full_name || v.wallet_address}
-              </option>
-            ))}
-          </select>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <h1 className="text-2xl font-bold">{view === "assign" ? "Assign Pending Claims" : "Settle Approved Claims"}</h1>
+        <div className="flex gap-2 bg-gray-100 rounded-lg p-1">
           <button
-            onClick={handleBulkAssign}
-            disabled={!bulkVerifier || processing}
-            className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-40"
+            onClick={() => setView("assign")}
+            className={`text-sm font-medium px-4 py-1.5 rounded-md ${view === "assign" ? "bg-white shadow text-blue-700" : "text-gray-500"}`}
           >
-            Bulk Assign
+            Assign
           </button>
+          <button
+            onClick={() => setView("settle")}
+            className={`text-sm font-medium px-4 py-1.5 rounded-md ${view === "settle" ? "bg-white shadow text-blue-700" : "text-gray-500"}`}
+          >
+            Settle
+          </button>
+        </div>
+      </div>
+
+      {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+
+      {view === "assign" && (
+        <div>
+          {selected.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex items-center gap-3 flex-wrap">
+              <span className="text-sm font-medium">{selected.length} selected</span>
+              <select
+                value={bulkVerifier}
+                onChange={(e) => setBulkVerifier(e.target.value)}
+                className="border rounded px-3 py-1.5 text-sm"
+              >
+                <option value="">Select verifier...</option>
+                {verifiers.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.full_name || v.wallet_address}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleBulkAssign}
+                disabled={!bulkVerifier || processing}
+                className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-40"
+              >
+                Bulk Assign
+              </button>
+            </div>
+          )}
+
+          <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50 text-left text-gray-500">
+                  <th className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selected.length === claims.length && claims.length > 0}
+                      onChange={(e) => setSelected(e.target.checked ? claims.map((c) => c.id) : [])}
+                    />
+                  </th>
+                  <th className="px-4 py-3">Claim ID</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Submitted</th>
+                  <th className="px-4 py-3">Policyholder</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {claims.map((c) => (
+                  <tr key={c.id} className="border-b hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(c.id)}
+                        onChange={(e) =>
+                          setSelected((s) => (e.target.checked ? [...s, c.id] : s.filter((id) => id !== c.id)))
+                        }
+                      />
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs">{c.id.slice(0, 8)}</td>
+                    <td className="px-4 py-3">
+                      <InsuranceTypeBadge type={c.insurance_type} />
+                    </td>
+                    <td className="px-4 py-3 text-xs">{new Date(c.submitted_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-3">{c.policyholder?.full_name || c.policyholder_id.slice(0, 8)}</td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => setModalClaim(c)} className="text-blue-600 hover:underline">
+                        Assign
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {claims.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="text-center text-gray-400 py-12">
+                      No pending claims to assign.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-gray-50 text-left text-gray-500">
-              <th className="px-4 py-3">
-                <input
-                  type="checkbox"
-                  checked={selected.length === claims.length && claims.length > 0}
-                  onChange={(e) => setSelected(e.target.checked ? claims.map((c) => c.id) : [])}
-                />
-              </th>
-              <th className="px-4 py-3">Claim ID</th>
-              <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Submitted</th>
-              <th className="px-4 py-3">Policyholder</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {claims.map((c) => (
-              <tr key={c.id} className="border-b hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(c.id)}
-                    onChange={(e) =>
-                      setSelected((s) => (e.target.checked ? [...s, c.id] : s.filter((id) => id !== c.id)))
-                    }
-                  />
-                </td>
-                <td className="px-4 py-3 font-mono text-xs">{c.id.slice(0, 8)}</td>
-                <td className="px-4 py-3">
-                  <InsuranceTypeBadge type={c.insurance_type} />
-                </td>
-                <td className="px-4 py-3 text-xs">{new Date(c.submitted_at).toLocaleDateString()}</td>
-                <td className="px-4 py-3 font-mono text-xs">
-                  {c.policyholder?.wallet_address?.slice(0, 10) || c.policyholder_id.slice(0, 8)}
-                </td>
-                <td className="px-4 py-3">
-                  <button onClick={() => setModalClaim(c)} className="text-blue-600 hover:underline">
-                    Assign
-                  </button>
-                </td>
+      {view === "settle" && (
+        <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-gray-50 text-left text-gray-500">
+                <th className="px-4 py-3">Claim ID</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Decided</th>
+                <th className="px-4 py-3">Policyholder</th>
+                <th className="px-4 py-3" />
               </tr>
-            ))}
-            {claims.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-center text-gray-400 py-12">
-                  No pending claims to assign.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {approvedClaims.map((c) => (
+                <tr key={c.id} className="border-b hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-xs">{c.id.slice(0, 8)}</td>
+                  <td className="px-4 py-3">
+                    <InsuranceTypeBadge type={c.insurance_type} />
+                  </td>
+                  <td className="px-4 py-3 text-xs">{c.decided_at ? new Date(c.decided_at).toLocaleDateString() : "—"}</td>
+                  <td className="px-4 py-3">{c.policyholder?.full_name || c.policyholder_id.slice(0, 8)}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => handleSettle(c)}
+                      disabled={processing}
+                      className="text-blue-600 hover:underline disabled:opacity-40"
+                    >
+                      Settle
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {approvedClaims.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center text-gray-400 py-12">
+                    No approved claims awaiting settlement.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {modalClaim && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">

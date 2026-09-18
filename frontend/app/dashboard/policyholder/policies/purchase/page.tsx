@@ -2,51 +2,67 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRole } from "@/hooks/useRole";
-import { getPlan, POLICY_TYPE_CONFIG } from "@/constants/policyPlans";
+import { POLICY_TYPE_CONFIG, PLAN_META } from "@/constants/policyPlans";
 import {
   canRenew,
   createPolicy,
-  getPolicy,
-  previewInstalments,
-  recordPayment,
-  refreshAll,
+  listPlans,
+  myPolicies,
+  payPolicy,
   renewPolicy,
-} from "@/lib/policyEngine";
+} from "@/lib/policyApi";
 import PaymentOptionSelector from "@/components/policy/PaymentOptionSelector";
 import InstalmentSchedule from "@/components/policy/InstalmentSchedule";
 import SimulatedPaymentNotice from "@/components/policy/SimulatedPaymentNotice";
 import PolicyStatusBadge from "@/components/policy/PolicyStatusBadge";
-import type { PaymentMode, PolicyRecord } from "@/types";
+import type { PaymentMode, PolicyPlan, PolicyRow } from "@/types";
 
 function PurchaseFlow() {
   const router = useRouter();
   const params = useSearchParams();
-  const { wallet } = useRole();
+  const { token } = useRole();
 
-  const planId = params.get("planId");
+  const planId = params.get("planId") ? Number(params.get("planId")) : null;
   const renewId = params.get("renewId");
   const payId = params.get("payId");
 
-  const plan = planId ? getPlan(planId) : null;
-  const [existingPolicy, setExistingPolicy] = useState<PolicyRecord | null>(null);
+  const [plan, setPlan] = useState<PolicyPlan | null>(null);
+  const [existingPolicy, setExistingPolicy] = useState<PolicyRow | null>(null);
+  const [activePolicy, setActivePolicy] = useState<PolicyRow | null>(null);
   const [step, setStep] = useState<"configure" | "review" | "payment" | "done">(payId ? "payment" : "configure");
   const [mode, setMode] = useState<PaymentMode>("PayNow");
   const [instalmentCount, setInstalmentCount] = useState(3);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
-  const [resultPolicy, setResultPolicy] = useState<PolicyRecord | null>(null);
+  const [resultPolicy, setResultPolicy] = useState<PolicyRow | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (!wallet) return;
-    const id = renewId || payId;
-    if (id) {
-      refreshAll(wallet);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setExistingPolicy(getPolicy(wallet, id));
-    }
-  }, [wallet, renewId, payId]);
+    if (!token) return;
+    (async () => {
+      try {
+        if (planId) {
+          const plans = await listPlans();
 
-  if (!wallet) return <p className="text-gray-400">Connect your wallet to continue.</p>;
+          setPlan(plans.find((p) => p.planId === planId) || null);
+        }
+        const id = renewId || payId;
+        if (id) {
+          const list = await myPolicies(token);
+          const found = list.find((p) => p.id === id) || null;
+
+          setExistingPolicy(found);
+          if (payId) setActivePolicy(found);
+        }
+      } finally {
+
+        setLoaded(true);
+      }
+    })();
+  }, [token, planId, renewId, payId]);
+
+  if (!token) return <p className="text-gray-400">Please log in to continue.</p>;
+  if (!loaded) return <p className="text-gray-400">Loading...</p>;
 
   if (!plan && !renewId && !payId) {
     return <p className="text-gray-400">No plan selected. Go back to Browse Plans.</p>;
@@ -55,7 +71,7 @@ function PurchaseFlow() {
   const typeCfg = plan
     ? POLICY_TYPE_CONFIG[plan.type]
     : existingPolicy
-      ? POLICY_TYPE_CONFIG[existingPolicy.policyType]
+      ? POLICY_TYPE_CONFIG[existingPolicy.policy_type]
       : null;
 
   function confirmConfigure() {
@@ -76,17 +92,22 @@ function PurchaseFlow() {
     setProcessing(true);
     try {
       if (renewId) {
-        const updated = renewPolicy(wallet, renewId, mode, instalmentCount);
+        const { policy } = await renewPolicy(token, renewId, mode, mode === "Instalment" ? instalmentCount : undefined);
         if (mode === "PayLater") {
-          setResultPolicy(updated);
+          setResultPolicy(policy);
           setStep("done");
         } else {
-          setExistingPolicy(updated);
+          setActivePolicy(policy);
           setStep("payment");
         }
       } else if (plan) {
-        const created = createPolicy(wallet, plan.id, mode as Exclude<PaymentMode, "PayLater">, instalmentCount);
-        setExistingPolicy(created);
+        const { policy } = await createPolicy(
+          token,
+          plan.planId,
+          mode as Exclude<PaymentMode, "PayLater">,
+          mode === "Instalment" ? instalmentCount : undefined
+        );
+        setActivePolicy(policy);
         setStep("payment");
       }
     } catch (err) {
@@ -97,13 +118,13 @@ function PurchaseFlow() {
   }
 
   async function simulatePayment() {
-    const id = existingPolicy?.id || payId;
+    const id = activePolicy?.id || payId;
     if (!id) return;
     setProcessing(true);
     setError("");
     try {
-      const updated = recordPayment(wallet, id);
-      setResultPolicy(updated);
+      const { policy } = await payPolicy(token, id);
+      setResultPolicy(policy);
       setStep("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Payment failed");
@@ -112,10 +133,8 @@ function PurchaseFlow() {
     }
   }
 
-  const dueAmount =
-    existingPolicy?.paymentMode === "Instalment"
-      ? existingPolicy.instalments.find((i) => !i.paid)?.amount
-      : existingPolicy?.premium;
+  const premium = plan?.premiumRM ?? existingPolicy?.premium ?? 0;
+  const displayPolicy = activePolicy || existingPolicy;
 
   return (
     <div className="max-w-2xl">
@@ -128,15 +147,15 @@ function PurchaseFlow() {
           <div className="bg-white rounded-xl shadow p-6 mb-6">
             <div className="flex items-center gap-2 mb-2">
               <span>{typeCfg?.icon}</span>
-              <h2 className="font-semibold text-lg">{plan?.name || existingPolicy?.planName}</h2>
+              <h2 className="font-semibold text-lg">{plan?.name || existingPolicy?.plan_name}</h2>
             </div>
             {existingPolicy && (
               <p className="text-sm text-gray-500">
-                Current coverage ends {existingPolicy.endDate} — renewal starts from that date.
+                Current coverage ends {existingPolicy.end_date} — renewal starts from that date.
               </p>
             )}
-            {plan && <p className="text-sm text-gray-500">{plan.coverageSummary}</p>}
-            <p className="text-lg font-bold mt-2">RM {(plan?.premium ?? existingPolicy?.premium ?? 0).toLocaleString()}</p>
+            {plan && PLAN_META[plan.planId] && <p className="text-sm text-gray-500">{PLAN_META[plan.planId].coverageSummary}</p>}
+            <p className="text-lg font-bold mt-2">RM {premium.toLocaleString()}</p>
           </div>
 
           <div className="bg-white rounded-xl shadow p-6 mb-6">
@@ -153,7 +172,14 @@ function PurchaseFlow() {
           {mode === "Instalment" && (
             <div className="bg-white rounded-xl shadow p-6 mb-6">
               <h3 className="font-semibold mb-4">Instalment Schedule Preview</h3>
-              <InstalmentSchedule instalments={previewInstalments(plan?.premium ?? existingPolicy?.premium ?? 0, instalmentCount)} />
+              <InstalmentSchedule
+                premium={premium}
+                instalments={Array.from({ length: instalmentCount }, (_, i) => ({
+                  index: i + 1,
+                  dueDate: "",
+                  paid: false,
+                }))}
+              />
             </div>
           )}
 
@@ -169,9 +195,18 @@ function PurchaseFlow() {
         <div>
           <div className="bg-white rounded-xl shadow p-6 mb-6 space-y-2">
             <h3 className="font-semibold mb-2">Review</h3>
-            <Row label="Plan" value={plan?.name || existingPolicy?.planName || ""} />
-            <Row label="Premium" value={`RM ${(plan?.premium ?? existingPolicy?.premium ?? 0).toLocaleString()}`} />
-            <Row label="Payment Option" value={mode === "PayLater" ? "Renew first, pay later" : mode === "Instalment" ? `Instalment (${instalmentCount}x)` : "Pay now"} />
+            <Row label="Plan" value={plan?.name || existingPolicy?.plan_name || ""} />
+            <Row label="Premium" value={`RM ${premium.toLocaleString()}`} />
+            <Row
+              label="Payment Option"
+              value={
+                mode === "PayLater"
+                  ? "Renew first, pay later"
+                  : mode === "Instalment"
+                    ? `Instalment (${instalmentCount}x)`
+                    : "Pay now"
+              }
+            />
           </div>
           {mode === "PayLater" && (
             <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg p-4 mb-6">
@@ -200,10 +235,10 @@ function PurchaseFlow() {
           <SimulatedPaymentNotice />
           <div className="bg-white rounded-xl shadow p-6 my-6">
             <h3 className="font-semibold mb-2">Amount Due</h3>
-            <p className="text-3xl font-bold">RM {(dueAmount ?? 0).toLocaleString()}</p>
-            {existingPolicy?.paymentMode === "Instalment" && (
+            <p className="text-3xl font-bold">RM {(displayPolicy?.premium ?? premium ?? 0).toLocaleString()}</p>
+            {displayPolicy?.payment_mode === "Instalment" && (
               <p className="text-xs text-gray-400 mt-1">
-                Instalment {existingPolicy.paidInstalments + 1} of {existingPolicy.totalInstalments}
+                Instalment {displayPolicy.paid_instalments + 1} of {displayPolicy.total_instalments}
               </p>
             )}
           </div>
@@ -228,8 +263,8 @@ function PurchaseFlow() {
             <PolicyStatusBadge status={resultPolicy.status} />
           </div>
           <p className="text-sm text-gray-500 mb-6">
-            Policy {resultPolicy.policyNumber} covers {resultPolicy.startDate} to {resultPolicy.endDate}.
-            {resultPolicy.graceDeadline && ` Pay in full by ${resultPolicy.graceDeadline} to keep coverage active.`}
+            Policy {resultPolicy.policy_number} covers {resultPolicy.start_date} to {resultPolicy.end_date}.
+            {resultPolicy.pay_deadline && ` Pay in full by ${resultPolicy.pay_deadline} to keep coverage active.`}
           </p>
           <button
             onClick={() => router.push("/dashboard/policyholder/policies")}

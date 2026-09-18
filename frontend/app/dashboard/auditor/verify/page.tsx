@@ -23,18 +23,18 @@ export default function HashIntegrityCheckerPage() {
     setResult(null);
     try {
       const { claim } = await apiFetch(`/api/claims/${claimId.trim()}`, {}, wallet);
-      if (!claim.blockchain_claim_id) throw new Error("This claim has not been recorded on-chain yet.");
+      if (!claim.on_chain_claim_id) throw new Error("This claim has not been recorded on-chain yet.");
 
-      const onChain = await apiFetch(`/api/blockchain/claim/${claim.blockchain_claim_id}`, {}, wallet);
+      const onChain = await apiFetch(`/api/blockchain/claim/${claim.on_chain_claim_id}`, {}, wallet);
       const verify = await apiFetch(
-        `/api/blockchain/verify/${claim.blockchain_claim_id}?hash=${claim.document_hash}`,
+        `/api/blockchain/verify/${claim.on_chain_claim_id}?hash=${claim.details_hash}`,
         {},
         wallet
       );
 
       setResult({
-        offChainHash: claim.document_hash,
-        onChainHash: onChain.documentHash,
+        offChainHash: claim.details_hash,
+        onChainHash: onChain.detailsHash,
         match: verify.isValid,
         recordedAt: new Date(onChain.submittedAt * 1000).toLocaleString(),
       });

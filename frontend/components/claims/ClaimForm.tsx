@@ -1,14 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMetaMask } from "@/hooks/useMetaMask";
-import { useClaimRegistry } from "@/hooks/useContract";
-import { apiFetch } from "@/lib/api";
+import { useRole } from "@/hooks/useRole";
+import { apiFetchAuth } from "@/lib/api";
+import { myPolicies } from "@/lib/policyApi";
 import { INSURANCE_TYPES, type InsuranceConfig } from "@/constants/insurance";
 import { CLAIM_TO_POLICY_TYPE } from "@/constants/policyPlans";
-import { eligiblePoliciesForClaim, isEligible } from "@/lib/policyEngine";
-import type { InsuranceType, PolicyRecord } from "@/types";
+import type { InsuranceType, PolicyRow } from "@/types";
 import InsuranceTypeCard from "@/components/insurance/InsuranceTypeCard";
 import DocumentUploader, { type UploadedFile } from "@/components/documents/DocumentUploader";
 import BlockchainNote from "@/components/blockchain/BlockchainNote";
@@ -19,116 +18,95 @@ type Step = 1 | 2 | 3 | 4;
 export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { address } = useMetaMask();
-  const { submitClaim } = useClaimRegistry();
+  const { token } = useRole();
 
   const preselected = searchParams.get("type") as InsuranceType | null;
   const [step, setStep] = useState<Step>(preselected ? 2 : 1);
   const [insuranceType, setInsuranceType] = useState<InsuranceType | null>(preselected);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [myEligiblePolicies, setMyEligiblePolicies] = useState<PolicyRow[]>([]);
   const [selectedPolicyId, setSelectedPolicyId] = useState("");
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [combinedHash, setCombinedHash] = useState("");
   const [status, setStatus] = useState("");
+  const [rejectReason, setRejectReason] = useState<{ reasonCode: string; message: string } | null>(null);
   const [txHash, setTxHash] = useState("");
   const [loading, setLoading] = useState(false);
 
   const config: InsuranceConfig | undefined = INSURANCE_TYPES.find((t) => t.id === insuranceType);
   const policyNumberField = config?.fields.find((f) => f.role === "policyNumber");
   const dateFieldConfig = config?.fields.find((f) => f.role === "date");
+  const descriptionField = config?.fields.find((f) => f.role === "description");
+  const claimTypeField = config?.fields.find((f) => f.role === "claimType");
   const linksToPolicyModule = insuranceType ? Boolean(CLAIM_TO_POLICY_TYPE[insuranceType]) : false;
-  const myPolicies = address && insuranceType ? eligiblePoliciesForClaim(address, insuranceType) : [];
 
-  const eligibility =
-    address && insuranceType && selectedPolicyId
-      ? isEligible(address, selectedPolicyId, insuranceType, (dateFieldConfig && values[dateFieldConfig.key]) || "")
-      : null;
+  useEffect(() => {
+    if (!token || !insuranceType || !linksToPolicyModule) return;
+    const mappedType = CLAIM_TO_POLICY_TYPE[insuranceType];
+
+    myPolicies(token)
+      .then((list) =>
+        setMyEligiblePolicies(
+          list.filter((p) => p.policy_type === mappedType && (p.status === "Active" || p.status === "GracePeriod"))
+        )
+      )
+      .catch(() => setMyEligiblePolicies([]));
+
+  }, [token, insuranceType, linksToPolicyModule]);
 
   function setField(key: string, value: string) {
     setValues((v) => ({ ...v, [key]: value }));
   }
 
-  function selectPolicy(policy: PolicyRecord) {
+  function selectPolicy(policy: PolicyRow) {
     setSelectedPolicyId(policy.id);
-    if (policyNumberField) setField(policyNumberField.key, policy.policyNumber);
+    if (policyNumberField) setField(policyNumberField.key, policy.policy_number);
   }
 
   function fieldsComplete() {
     if (!config) return false;
+    if (linksToPolicyModule && myEligiblePolicies.length > 0 && !selectedPolicyId) return false;
     return config.fields.every((f) => !f.required || (values[f.key] && values[f.key].trim() !== ""));
   }
 
   async function handleSubmit() {
-    if (!config || !address) return;
+    if (!config || !token) return;
     setLoading(true);
-    setStatus("Uploading documents...");
+    setStatus("Submitting claim...");
+    setRejectReason(null);
 
     try {
-      const policyNumberField = config.fields.find((f) => f.role === "policyNumber");
-      const dateField = config.fields.find((f) => f.role === "date");
-      const descriptionField = config.fields.find((f) => f.role === "description");
-      const claimTypeField = config.fields.find((f) => f.role === "claimType");
-
       const details: Record<string, string> = { ...values };
-      const claimTypeLabel = claimTypeField
-        ? `${config.label} — ${values[claimTypeField.key]}`
-        : config.label;
+      const claimTypeLabel = claimTypeField ? `${config.label} — ${values[claimTypeField.key]}` : config.label;
 
-      const created = await apiFetch(
-        "/api/claims",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            insuranceType: config.id,
-            claimType: claimTypeLabel,
-            description: descriptionField ? values[descriptionField.key] : "",
-            incidentDate: dateField ? values[dateField.key] : null,
-            documentHash: combinedHash || null,
-            details: {
-              ...details,
-              policyNumber: policyNumberField ? values[policyNumberField.key] : "",
-            },
-          }),
-        },
-        address
+      const formData = new FormData();
+      if (selectedPolicyId) formData.append("policyId", selectedPolicyId);
+      formData.append("insuranceType", config.id);
+      formData.append("claimType", claimTypeLabel);
+      formData.append("description", descriptionField ? values[descriptionField.key] : "");
+      formData.append("incidentDate", dateFieldConfig ? values[dateFieldConfig.key] : "");
+      formData.append(
+        "details",
+        JSON.stringify({
+          ...details,
+          policyNumber: policyNumberField ? values[policyNumberField.key] : "",
+        })
       );
+      files.forEach((f) => formData.append("files", f.file));
+
+      const created = await apiFetchAuth("/api/claims", { method: "POST", body: formData }, token);
 
       const claim = created.claim;
-
-      if (files.length > 0) {
-        const formData = new FormData();
-        formData.append("claimId", claim.id);
-        files.forEach((f) => formData.append("files", f.file));
-
-        const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-        await fetch(`${apiUrl}/api/documents/upload`, {
-          method: "POST",
-          headers: { "x-wallet-address": address },
-          body: formData,
-        });
-      }
-
-      setStatus("Confirm the transaction in MetaMask...");
-      const receipt = await submitClaim(combinedHash || "0x" + "0".repeat(64), claimTypeLabel);
-      const hash = receipt?.hash || receipt?.transactionHash || "";
-      setTxHash(hash);
-
-      await apiFetch(
-        `/api/claims/${claim.id}/tx`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ txHash: hash, blockchainClaimId: null }),
-        },
-        address
-      );
-
+      setTxHash(created.txHash || "");
       setStatus("Claim submitted successfully!");
       setTimeout(() => {
         if (onSubmitted) onSubmitted();
         else router.push(`/dashboard/policyholder/claims/${claim.id}`);
       }, 1200);
     } catch (err) {
-      setStatus(`Error: ${err instanceof Error ? err.message : "Submission failed"}`);
+      const message = err instanceof Error ? err.message : "Submission failed";
+      setRejectReason({ reasonCode: message, message });
+      setStatus(`Error: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -192,47 +170,37 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
               <label className="block text-sm mb-1 font-medium">
                 Policy {policyNumberField?.required && <span className="text-red-500">*</span>}
               </label>
-              {myPolicies.length === 0 ? (
+              {myEligiblePolicies.length === 0 ? (
                 <p className="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">
-                  No active or grace-period {config.label.toLowerCase()} policy found for this wallet.{" "}
+                  No active or grace-period {config.label.toLowerCase()} policy found for your account.{" "}
                   <Link href="/dashboard/policyholder/policies/plans" className="underline font-medium">
                     Buy a policy
                   </Link>{" "}
-                  before filing this claim, or enter a policy number manually below.
+                  before filing this claim.
                 </p>
               ) : (
                 <select
                   value={selectedPolicyId}
                   onChange={(e) => {
-                    const policy = myPolicies.find((p) => p.id === e.target.value);
+                    const policy = myEligiblePolicies.find((p) => p.id === e.target.value);
                     if (policy) selectPolicy(policy);
                   }}
                   className="w-full border rounded px-3 py-2"
                 >
                   <option value="">Select a policy...</option>
-                  {myPolicies.map((p) => (
+                  {myEligiblePolicies.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.policyNumber} — {p.planName} ({p.status})
+                      {p.policy_number} — {p.plan_name} ({p.status})
                     </option>
                   ))}
                 </select>
-              )}
-              {eligibility && (
-                <p
-                  className={`text-sm mt-2 px-3 py-2 rounded-lg ${
-                    eligibility.eligible ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-                  }`}
-                >
-                  {eligibility.eligible ? "✅ " : "❌ "}
-                  {eligibility.message}
-                </p>
               )}
             </div>
           )}
 
           <div className="space-y-4">
             {config.fields.map((f) => (
-              <div key={f.key} className={f.role === "policyNumber" && linksToPolicyModule && myPolicies.length > 0 ? "hidden" : ""}>
+              <div key={f.key} className={f.role === "policyNumber" && linksToPolicyModule ? "hidden" : ""}>
                 <label className="block text-sm mb-1 font-medium">
                   {f.label} {f.required && <span className="text-red-500">*</span>}
                 </label>
@@ -338,7 +306,7 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
             )}
           </div>
 
-          <BlockchainNote />
+          <BlockchainNote text="Your claim will be recorded off-chain and, for policy-linked claim types, verified for eligibility and recorded on the blockchain by the platform's relayer wallet on your behalf." />
 
           <div className="flex gap-3 mt-6">
             <button onClick={() => setStep(3)} disabled={loading} className="px-4 py-2 border rounded-lg">
@@ -346,7 +314,7 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
             </button>
             <button
               onClick={handleSubmit}
-              disabled={loading || !address}
+              disabled={loading || !token}
               className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
             >
               {loading ? "Submitting..." : "Submit Claim"}
@@ -356,6 +324,11 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
           {status && (
             <p className={`text-sm mt-4 ${status.startsWith("Error") ? "text-red-600" : "text-green-600"}`}>
               {status}
+            </p>
+          )}
+          {rejectReason && (
+            <p className="text-sm mt-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2">
+              This claim was not eligible: {rejectReason.message}
             </p>
           )}
           {txHash && <HashDisplay hash={txHash} label="Transaction" etherscanTx full />}

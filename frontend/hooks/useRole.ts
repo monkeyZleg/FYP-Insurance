@@ -22,6 +22,8 @@ export function useRole() {
   const wallet = useLocalStorageValue("wallet");
   const userName = useLocalStorageValue("userName");
   const userId = useLocalStorageValue("userId");
+  const token = useLocalStorageValue("jwt");
+  const holderId = useLocalStorageValue("holderId");
 
   function logout() {
     localStorage.removeItem("jwt");
@@ -29,8 +31,9 @@ export function useRole() {
     localStorage.removeItem("wallet");
     localStorage.removeItem("userName");
     localStorage.removeItem("userId");
+    localStorage.removeItem("holderId");
     router.push("/login");
   }
 
-  return { role, wallet, userName, userId, logout };
+  return { role, wallet, userName, userId, token, holderId, logout };
 }

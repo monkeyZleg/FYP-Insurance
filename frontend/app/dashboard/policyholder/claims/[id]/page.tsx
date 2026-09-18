@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetchAuth } from "@/lib/api";
 import { useRole } from "@/hooks/useRole";
 import ClaimStatusTracker from "@/components/claims/ClaimStatusTracker";
 import InsuranceTypeBadge from "@/components/insurance/InsuranceTypeBadge";
@@ -10,48 +10,52 @@ import { getInsuranceConfig } from "@/constants/insurance";
 import type { Claim, Document as ClaimDocument } from "@/types";
 
 interface OnChainClaim {
-  claimId: string;
-  documentHash: string;
+  detailsHash: string;
   status: number;
   submittedAt: number;
-  lastUpdatedAt: number;
+  decidedAt: number;
 }
 
 export default function ClaimDetailPage() {
   const params = useParams();
   const claimId = params.id as string;
-  const { wallet } = useRole();
+  const { token } = useRole();
   const [claim, setClaim] = useState<Claim | null>(null);
   const [documents, setDocuments] = useState<ClaimDocument[]>([]);
   const [onChain, setOnChain] = useState<OnChainClaim | null>(null);
 
   useEffect(() => {
-    if (!wallet || !claimId) return;
-    apiFetch(`/api/claims/${claimId}`, {}, wallet)
+    if (!token || !claimId) return;
+    apiFetchAuth(`/api/claims/${claimId}`, {}, token)
       .then((d) => setClaim(d.claim))
       .catch(() => setClaim(null));
-    apiFetch(`/api/documents/${claimId}`, {}, wallet)
+    apiFetchAuth(`/api/documents/${claimId}`, {}, token)
       .then((d) => setDocuments(d.documents || []))
       .catch(() => setDocuments([]));
-  }, [claimId, wallet]);
+  }, [claimId, token]);
 
   useEffect(() => {
-    if (!wallet || !claim?.blockchain_claim_id) return;
-    apiFetch(`/api/blockchain/claim/${claim.blockchain_claim_id}`, {}, wallet)
+    if (!token || !claim?.on_chain_claim_id) return;
+    apiFetchAuth(`/api/blockchain/claim/${claim.on_chain_claim_id}`, {}, token)
       .then(setOnChain)
       .catch(() => setOnChain(null));
-  }, [claim?.blockchain_claim_id, wallet]);
+  }, [claim?.on_chain_claim_id, token]);
 
   if (!claim) return <p className="text-gray-400">Loading claim...</p>;
 
   const config = getInsuranceConfig(claim.insurance_type);
-  const hashMatch = onChain && claim.document_hash ? onChain.documentHash === claim.document_hash : null;
+  const hashMatch = onChain && claim.details_hash ? onChain.detailsHash === claim.details_hash : null;
 
   return (
     <div className="max-w-3xl">
       <div className="flex items-center gap-3 mb-2">
         <h1 className="text-2xl font-bold">Claim Detail</h1>
         <InsuranceTypeBadge type={claim.insurance_type} />
+        {claim.flagged && (
+          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-red-100 text-red-700">
+            Flagged for audit
+          </span>
+        )}
       </div>
       <p className="text-xs text-gray-400 font-mono mb-6">{claim.id}</p>
 
@@ -92,10 +96,10 @@ export default function ClaimDetailPage() {
 
       <div className="bg-white rounded-xl shadow p-6 mb-6 space-y-3">
         <h2 className="font-semibold mb-2">Blockchain Record</h2>
-        <Row label="On-Chain Claim ID" value={claim.blockchain_claim_id || "Not yet recorded"} mono />
+        <Row label="On-Chain Claim ID" value={claim.on_chain_claim_id || "Not yet recorded"} mono />
         <div className="flex justify-between items-center text-sm">
           <span className="text-gray-500">Transaction Hash</span>
-          <HashDisplay hash={claim.tx_hash} etherscanTx />
+          <HashDisplay hash={claim.submit_tx_hash} etherscanTx />
         </div>
         {onChain && (
           <>

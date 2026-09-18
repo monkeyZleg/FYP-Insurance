@@ -92,10 +92,8 @@ export default function VerifierQueue() {
                 )}
               </div>
               <h3 className="font-semibold">{claim.claim_type}</h3>
-              <p className="text-xs text-gray-400 mt-1 font-mono">
-                {claim.policyholder?.wallet_address
-                  ? `${claim.policyholder.wallet_address.slice(0, 6)}...${claim.policyholder.wallet_address.slice(-4)}`
-                  : claim.policyholder_id.slice(0, 8)}
+              <p className="text-xs text-gray-400 mt-1">
+                {claim.policyholder?.full_name || claim.policyholder_id.slice(0, 8)}
               </p>
               <p className="text-xs text-gray-400">
                 Submitted {new Date(claim.submitted_at).toLocaleDateString()}

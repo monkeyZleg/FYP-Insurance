@@ -5,13 +5,14 @@ import { useRole } from "@/hooks/useRole";
 import type { User, UserRole } from "@/types";
 
 const ROLES: UserRole[] = ["policyholder", "verifier", "admin", "auditor"];
+const STAFF_ROLES: UserRole[] = ["verifier", "admin", "auditor"];
 
 export default function UserManagementPage() {
   const { wallet } = useRole();
   const [users, setUsers] = useState<User[]>([]);
   const [roleFilter, setRoleFilter] = useState<UserRole | "All">("All");
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ walletAddress: "", fullName: "", email: "", role: "policyholder" as UserRole });
+  const [form, setForm] = useState({ walletAddress: "", fullName: "", email: "", role: "verifier" as UserRole });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -37,7 +38,7 @@ export default function UserManagementPage() {
     try {
       await apiFetch("/api/auth/register", { method: "POST", body: JSON.stringify(form) }, wallet);
       setShowAdd(false);
-      setForm({ walletAddress: "", fullName: "", email: "", role: "policyholder" });
+      setForm({ walletAddress: "", fullName: "", email: "", role: "verifier" });
       loadUsers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add user");
@@ -110,7 +111,7 @@ export default function UserManagementPage() {
             {filtered.map((u) => (
               <tr key={u.id} className="border-b hover:bg-gray-50">
                 <td className="px-4 py-3 font-mono text-xs">
-                  {u.wallet_address.slice(0, 8)}...{u.wallet_address.slice(-6)}
+                  {u.wallet_address ? `${u.wallet_address.slice(0, 8)}...${u.wallet_address.slice(-6)}` : "— (email login)"}
                 </td>
                 <td className="px-4 py-3">{u.full_name || "—"}</td>
                 <td className="px-4 py-3">
@@ -185,12 +186,15 @@ export default function UserManagementPage() {
                 onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
                 className="w-full border rounded px-3 py-2 text-sm capitalize"
               >
-                {ROLES.map((r) => (
+                {STAFF_ROLES.map((r) => (
                   <option key={r} value={r}>
                     {r}
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-gray-400">
+                Policyholders register themselves with email + password from the login page.
+              </p>
             </div>
             {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
             <div className="flex gap-3 mt-5">

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useRole } from "@/hooks/useRole";
+import { useClaimRegistry } from "@/hooks/useContract";
 import { INSURANCE_TYPES } from "@/constants/insurance";
 import InsuranceTypeBadge from "@/components/insurance/InsuranceTypeBadge";
 import AuditTrailTable from "@/components/blockchain/AuditTrailTable";
@@ -9,16 +10,26 @@ import type { Claim, InsuranceType } from "@/types";
 
 export default function AuditorDashboard() {
   const { wallet } = useRole();
+  const { flagClaim } = useClaimRegistry();
   const [claims, setClaims] = useState<Claim[]>([]);
   const [typeFilter, setTypeFilter] = useState<InsuranceType | "All">("All");
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
+  const [flagging, setFlagging] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (wallet)
-      apiFetch("/api/claims/all", {}, wallet)
-        .then((d) => setClaims(d.claims || []))
-        .catch(() => setClaims([]));
+    if (wallet) loadClaims();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet]);
+
+  async function loadClaims() {
+    try {
+      const d = await apiFetch("/api/claims/all", {}, wallet);
+      setClaims(d.claims || []);
+    } catch {
+      setClaims([]);
+    }
+  }
 
   const filtered = useMemo(
     () => (typeFilter === "All" ? claims : claims.filter((c) => c.insurance_type === typeFilter)),
@@ -28,7 +39,7 @@ export default function AuditorDashboard() {
   function exportCSV() {
     const header = "Claim ID,Insurance Type,Status,TX Hash,Submitted\n";
     const rows = filtered
-      .map((c) => `${c.id},${c.insurance_type || ""},${c.status},${c.tx_hash || "N/A"},${c.submitted_at}`)
+      .map((c) => `${c.id},${c.insurance_type || ""},${c.status},${c.submit_tx_hash || "N/A"},${c.submitted_at}`)
       .join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -37,6 +48,26 @@ export default function AuditorDashboard() {
     a.download = "audit_log.csv";
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleFlag(claim: Claim) {
+    if (!claim.on_chain_claim_id) return;
+    setFlagging(claim.id);
+    setError("");
+    try {
+      const { receipt, findingHash } = await flagClaim(claim.on_chain_claim_id, `Flagged claim ${claim.id}`);
+      const txHash = receipt?.hash || receipt?.transactionHash || "";
+      await apiFetch(
+        `/api/claims/${claim.id}/flag`,
+        { method: "PATCH", body: JSON.stringify({ txHash, findingHash }) },
+        wallet
+      );
+      await loadClaims();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to flag claim");
+    } finally {
+      setFlagging(null);
+    }
   }
 
   return (
@@ -49,8 +80,11 @@ export default function AuditorDashboard() {
       </div>
 
       <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-4 py-3 mb-6">
-        Read-only access — auditors cannot approve, reject, assign, or modify claim records.
+        Read-only access — auditors cannot approve, reject, assign, or settle claims, but may flag a claim for
+        investigation.
       </div>
+
+      {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
       <div className="flex gap-2 mb-6">
         <button
@@ -83,6 +117,7 @@ export default function AuditorDashboard() {
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">TX Hash</th>
               <th className="px-4 py-3">Submitted</th>
+              <th className="px-4 py-3">Flag</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -95,9 +130,9 @@ export default function AuditorDashboard() {
                 </td>
                 <td className="px-4 py-3">{claim.status}</td>
                 <td className="px-4 py-3 font-mono text-xs text-blue-600">
-                  {claim.tx_hash ? (
-                    <a href={`https://sepolia.etherscan.io/tx/${claim.tx_hash}`} target="_blank" rel="noreferrer">
-                      {claim.tx_hash.slice(0, 10)}...
+                  {claim.submit_tx_hash ? (
+                    <a href={`https://sepolia.etherscan.io/tx/${claim.submit_tx_hash}`} target="_blank" rel="noreferrer">
+                      {claim.submit_tx_hash.slice(0, 10)}...
                     </a>
                   ) : (
                     "N/A"
@@ -105,14 +140,29 @@ export default function AuditorDashboard() {
                 </td>
                 <td className="px-4 py-3 text-xs">{new Date(claim.submitted_at).toLocaleDateString()}</td>
                 <td className="px-4 py-3">
-                  {claim.blockchain_claim_id && (
+                  {claim.flagged ? (
+                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-red-100 text-red-700">Flagged</span>
+                  ) : claim.on_chain_claim_id ? (
+                    <button
+                      onClick={() => handleFlag(claim)}
+                      disabled={flagging === claim.id}
+                      className="text-xs text-red-600 hover:underline disabled:opacity-40"
+                    >
+                      {flagging === claim.id ? "Flagging..." : "Flag"}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {claim.on_chain_claim_id && (
                     <button
                       onClick={() =>
-                        setSelectedClaimId(selectedClaimId === claim.blockchain_claim_id ? null : claim.blockchain_claim_id)
+                        setSelectedClaimId(selectedClaimId === claim.on_chain_claim_id ? null : claim.on_chain_claim_id)
                       }
                       className="text-blue-600 hover:underline text-sm"
                     >
-                      {selectedClaimId === claim.blockchain_claim_id ? "Hide Trail" : "Audit Trail"}
+                      {selectedClaimId === claim.on_chain_claim_id ? "Hide Trail" : "Audit Trail"}
                     </button>
                   )}
                 </td>
@@ -120,7 +170,7 @@ export default function AuditorDashboard() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center text-gray-400 py-12">
+                <td colSpan={7} className="text-center text-gray-400 py-12">
                   No claims found.
                 </td>
               </tr>
@@ -131,7 +181,7 @@ export default function AuditorDashboard() {
 
       {selectedClaimId && (
         <div className="bg-white rounded-xl shadow p-6">
-          <h3 className="font-semibold mb-4">Blockchain Audit Trail — {selectedClaimId.slice(0, 10)}...</h3>
+          <h3 className="font-semibold mb-4">Blockchain Audit Trail — Claim #{selectedClaimId}</h3>
           <AuditTrailTable claimId={selectedClaimId} walletAddress={wallet} />
         </div>
       )}

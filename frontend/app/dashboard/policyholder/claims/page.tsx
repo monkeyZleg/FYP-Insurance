@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { apiFetch } from "@/lib/api";
+import { apiFetchAuth } from "@/lib/api";
 import { useRole } from "@/hooks/useRole";
 import { INSURANCE_TYPES } from "@/constants/insurance";
 import InsuranceTypeBadge from "@/components/insurance/InsuranceTypeBadge";
@@ -12,7 +12,7 @@ import type { Claim, ClaimStatus, InsuranceType } from "@/types";
 const PAGE_SIZE = 10;
 
 export default function MyClaimsPage() {
-  const { wallet } = useRole();
+  const { token } = useRole();
   const [claims, setClaims] = useState<Claim[]>([]);
   const [typeFilter, setTypeFilter] = useState<InsuranceType | "All">("All");
   const [statusFilter, setStatusFilter] = useState<ClaimStatus | "All">("All");
@@ -21,11 +21,11 @@ export default function MyClaimsPage() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    if (wallet)
-      apiFetch("/api/claims/my", {}, wallet)
+    if (token)
+      apiFetchAuth("/api/claims/my", {}, token)
         .then((d) => setClaims(d.claims || []))
         .catch(() => setClaims([]));
-  }, [wallet]);
+  }, [token]);
 
   const filtered = useMemo(() => {
     let list = [...claims];
@@ -107,10 +107,11 @@ export default function MyClaimsPage() {
           className="border rounded px-3 py-2 text-sm"
         >
           <option value="All">All Statuses</option>
-          <option value="Pending">Pending</option>
+          <option value="Submitted">Submitted</option>
           <option value="UnderReview">Under Review</option>
           <option value="Approved">Approved</option>
           <option value="Rejected">Rejected</option>
+          <option value="Settled">Settled</option>
         </select>
         <button
           onClick={() => setSortAsc((s) => !s)}

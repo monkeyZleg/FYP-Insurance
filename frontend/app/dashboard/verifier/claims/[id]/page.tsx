@@ -16,7 +16,7 @@ export default function VerifierReviewPage() {
   const router = useRouter();
   const claimId = params.id as string;
   const { wallet, userId } = useRole();
-  const { updateClaimStatus } = useClaimRegistry();
+  const { decideClaim } = useClaimRegistry();
 
   const [claim, setClaim] = useState<Claim | null>(null);
   const [documents, setDocuments] = useState<ClaimDocument[]>([]);
@@ -44,8 +44,8 @@ export default function VerifierReviewPage() {
   }, [claimId, wallet, userId]);
 
   // Hash integrity is verified against files as recorded; re-hashing isn't possible without
-  // re-downloading files, so presence of the stored combined hash is used as the check.
-  const hashCheck = documents.length > 0 && claim?.document_hash ? Boolean(claim.document_hash) : null;
+  // re-downloading files, so presence of the stored details hash is used as the check.
+  const hashCheck = documents.length > 0 && claim?.details_hash ? Boolean(claim.details_hash) : null;
 
   const config = useMemo(() => getInsuranceConfig(claim?.insurance_type), [claim?.insurance_type]);
 
@@ -58,12 +58,17 @@ export default function VerifierReviewPage() {
     setProcessing(true);
     setError("");
     try {
-      if (claim.blockchain_claim_id) {
-        await updateClaimStatus(claim.blockchain_claim_id, pendingDecision === "Approved" ? 2 : 3, remark);
-      }
+      if (!claim.on_chain_claim_id) throw new Error("This claim has not been recorded on-chain yet.");
+      const { receipt } = await decideClaim(
+        claim.on_chain_claim_id,
+        pendingDecision === "Approved",
+        0,
+        remark
+      );
+      const txHash = receipt?.hash || receipt?.transactionHash || "";
       await apiFetch(
         `/api/claims/${claim.id}/status`,
-        { method: "PATCH", body: JSON.stringify({ status: pendingDecision, remark }) },
+        { method: "PATCH", body: JSON.stringify({ status: pendingDecision, remark, txHash }) },
         wallet
       );
       router.push("/dashboard/verifier");
@@ -87,8 +92,9 @@ export default function VerifierReviewPage() {
       <div className="bg-white rounded-xl shadow p-6 mb-6 space-y-2">
         <h2 className="font-semibold mb-2">Policyholder</h2>
         <p className="text-sm">
-          Wallet: <span className="font-mono">{claim.policyholder?.wallet_address || claim.policyholder_id}</span>
+          Name: <span className="font-medium">{claim.policyholder?.full_name || claim.policyholder_id}</span>
         </p>
+        {claim.policyholder?.email && <p className="text-sm text-gray-500">{claim.policyholder.email}</p>}
         <p className="text-sm">Policy Number: {(claim.details?.policyNumber as string) || "—"}</p>
       </div>
 
@@ -126,13 +132,16 @@ export default function VerifierReviewPage() {
         </ul>
         {hashCheck !== null && (
           <p className={`text-sm font-medium ${hashCheck ? "text-green-600" : "text-red-600"}`}>
-            {hashCheck ? "Verified — combined hash matches on-chain record" : "Hash mismatch — flag for investigation"}
+            {hashCheck ? "Verified — details hash recorded on-chain" : "Hash mismatch — flag for investigation"}
           </p>
         )}
       </div>
 
       <div className="bg-white rounded-xl shadow p-6 mb-6">
         <h2 className="font-semibold mb-4">Decision</h2>
+        <p className="text-xs text-gray-400 mb-3">
+          Approving or rejecting will first ask you to confirm a transaction in MetaMask, then record the decision.
+        </p>
         <textarea
           value={remark}
           onChange={(e) => setRemark(e.target.value)}
@@ -178,7 +187,7 @@ export default function VerifierReviewPage() {
       {pendingDecision && (
         <ConfirmModal
           title={`Confirm ${pendingDecision}`}
-          message="This action is irreversible and will be recorded on the blockchain."
+          message="This action is irreversible and will be recorded on the blockchain via your connected wallet."
           confirmLabel={pendingDecision}
           danger={pendingDecision === "Rejected"}
           loading={processing}

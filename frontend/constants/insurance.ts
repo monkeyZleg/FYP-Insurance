@@ -117,8 +117,9 @@ export function getInsuranceConfig(type: string | null | undefined): InsuranceCo
 }
 
 export const STATUS_CONFIG: Record<string, { label: string; labelZh: string; bg: string; text: string }> = {
-  Pending: { label: "Pending", labelZh: "待审核", bg: "bg-amber-100", text: "text-amber-700" },
+  Submitted: { label: "Submitted", labelZh: "已提交", bg: "bg-amber-100", text: "text-amber-700" },
   UnderReview: { label: "Under Review", labelZh: "审核中", bg: "bg-blue-100", text: "text-blue-700" },
   Approved: { label: "Approved", labelZh: "已批准", bg: "bg-green-100", text: "text-green-700" },
   Rejected: { label: "Rejected", labelZh: "已拒绝", bg: "bg-red-100", text: "text-red-700" },
+  Settled: { label: "Settled", labelZh: "已结算", bg: "bg-purple-100", text: "text-purple-700" },
 };
