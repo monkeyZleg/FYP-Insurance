@@ -17,6 +17,9 @@ async function login(req, res) {
       .status(404)
       .json({ error: "Wallet not registered in the system" });
 
+  if (user.is_active === false)
+    return res.status(403).json({ error: "This account has been deactivated" });
+
   const token = jwt.sign(
     { wallet: walletAddress, role: user.role, userId: user.id },
     process.env.JWT_SECRET,
@@ -57,4 +60,40 @@ async function register(req, res) {
   res.status(201).json({ user: data });
 }
 
-module.exports = { login, register };
+async function getUsers(req, res) {
+  const { data: users, error } = await supabase
+    .from("users")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({ users });
+}
+
+async function updateUser(req, res) {
+  const { id } = req.params;
+  const { role, isActive } = req.body;
+
+  const updates = {};
+  if (role !== undefined) {
+    const validRoles = ["policyholder", "verifier", "admin", "auditor"];
+    if (!validRoles.includes(role))
+      return res.status(400).json({ error: "Invalid role" });
+    updates.role = role;
+  }
+  if (isActive !== undefined) updates.is_active = isActive;
+
+  const { data, error } = await supabase
+    .from("users")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({ user: data });
+}
+
+module.exports = { login, register, getUsers, updateUser };

@@ -1,13 +1,18 @@
 export type UserRole = "policyholder" | "verifier" | "admin" | "auditor";
 
+export type InsuranceType = "health" | "life" | "transportation" | "flight";
+
 export interface User {
   id: string;
   wallet_address: string;
   full_name: string;
   email: string;
   role: UserRole;
+  is_active?: boolean;
   created_at: string;
 }
+
+export type ClaimStatus = "Pending" | "UnderReview" | "Approved" | "Rejected";
 
 export interface Claim {
   id: string;
@@ -15,15 +20,19 @@ export interface Claim {
   tx_hash: string | null;
   policy_id: string | null;
   policyholder_id: string;
+  insurance_type: InsuranceType | null;
   claim_type: string;
   description: string;
   incident_date: string;
-  status: "Pending" | "UnderReview" | "Approved" | "Rejected";
+  details?: Record<string, string | number>;
+  status: ClaimStatus;
   assigned_verifier_id: string | null;
   verifier_remark: string | null;
   document_hash: string | null;
   submitted_at: string;
   last_updated_at: string;
+  policyholder?: { full_name: string; wallet_address: string };
+  verifier?: { full_name: string; wallet_address: string };
 }
 
 export interface Document {

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMetaMask } from "@/hooks/useMetaMask";
 import { apiFetch } from "@/lib/api";
-import WalletConnect from "@/components/WalletConnect";
+import WalletConnect from "@/components/shared/WalletConnect";
 
 export default function LoginPage() {
   const { address } = useMetaMask();
@@ -29,6 +29,7 @@ export default function LoginPage() {
       localStorage.setItem("role", data.role);
       localStorage.setItem("wallet", address);
       localStorage.setItem("userName", data.name || "");
+      localStorage.setItem("userId", data.userId || "");
 
       router.push(`/dashboard/${data.role}`);
     } catch (err) {

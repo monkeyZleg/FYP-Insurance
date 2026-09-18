@@ -15,6 +15,10 @@ router.post(
   upload.array("files", 10),
   uploadDocuments
 );
-router.get("/:claimId", rbac("verifier", "admin"), getDocumentsByClaim);
+router.get(
+  "/:claimId",
+  rbac("policyholder", "verifier", "admin", "auditor"),
+  getDocumentsByClaim
+);
 
 module.exports = router;

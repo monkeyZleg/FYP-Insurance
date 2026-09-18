@@ -2,18 +2,27 @@ const supabase = require("../services/supabaseService");
 const { submitClaimOnChain } = require("../services/blockchainService");
 
 async function createClaim(req, res) {
-  const { policyId, claimType, description, incidentDate, documentHash } =
-    req.body;
+  const {
+    policyId,
+    insuranceType,
+    claimType,
+    description,
+    incidentDate,
+    documentHash,
+    details,
+  } = req.body;
 
   const { data: claim, error } = await supabase
     .from("claims")
     .insert({
       policy_id: policyId || null,
       policyholder_id: req.user.id,
+      insurance_type: insuranceType || null,
       claim_type: claimType,
       description,
       incident_date: incidentDate,
       document_hash: documentHash,
+      details: details || {},
       status: "Pending",
     })
     .select()

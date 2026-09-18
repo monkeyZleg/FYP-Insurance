@@ -8,6 +8,7 @@ CREATE TABLE users (
   full_name       TEXT,
   email           TEXT UNIQUE,
   role            TEXT NOT NULL CHECK (role IN ('policyholder','verifier','admin','auditor')),
+  is_active       BOOLEAN DEFAULT true,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
@@ -31,9 +32,11 @@ CREATE TABLE claims (
   tx_hash              TEXT,
   policy_id            UUID REFERENCES policies(id),
   policyholder_id      UUID REFERENCES users(id),
+  insurance_type       TEXT CHECK (insurance_type IN ('health','life','transportation','flight')),
   claim_type           TEXT NOT NULL,
   description          TEXT,
   incident_date        DATE,
+  details              JSONB DEFAULT '{}'::jsonb,
   status               TEXT DEFAULT 'Pending'
                        CHECK (status IN ('Pending','UnderReview','Approved','Rejected')),
   assigned_verifier_id UUID REFERENCES users(id),

@@ -7,11 +7,14 @@ const CLAIM_REGISTRY_ADDRESS =
 
 const ClaimRegistryABI = [
   "function submitClaim(bytes32 documentHash, string calldata claimType) external returns (bytes32)",
+  "function assignClaim(bytes32 claimId, address verifier) external",
+  "function updateClaimStatus(bytes32 claimId, uint8 newStatus, string calldata remark) external",
   "function getClaim(bytes32 claimId) external view returns (tuple(bytes32 claimId, address policyHolder, bytes32 documentHash, string claimType, uint256 submittedAt, uint8 status, address assignedVerifier, string verifierRemark, uint256 lastUpdatedAt))",
   "function verifyDocumentHash(bytes32 claimId, bytes32 hashToCheck) external view returns (bool)",
   "function getClaimsByPolicyholder(address wallet) external view returns (bytes32[])",
   "function getAllClaimIds() external view returns (bytes32[])",
   "event ClaimSubmitted(bytes32 indexed claimId, address indexed policyHolder, bytes32 documentHash, string claimType, uint256 timestamp)",
+  "event ClaimAssigned(bytes32 indexed claimId, address indexed verifier, uint256 timestamp)",
   "event ClaimStatusUpdated(bytes32 indexed claimId, uint8 newStatus, address indexed updatedBy, string remark, uint256 timestamp)",
 ];
 
@@ -43,5 +46,28 @@ export function useClaimRegistry() {
     return await contract.verifyDocumentHash(claimId, hash);
   }
 
-  return { submitClaim, getClaim, verifyDocumentHash, getContract };
+  async function assignClaimOnChain(claimId: string, verifierAddress: string) {
+    const contract = getContract();
+    const tx = await contract.assignClaim(claimId, verifierAddress);
+    return await tx.wait();
+  }
+
+  async function updateClaimStatus(
+    claimId: string,
+    newStatus: 1 | 2 | 3,
+    remark: string
+  ) {
+    const contract = getContract();
+    const tx = await contract.updateClaimStatus(claimId, newStatus, remark);
+    return await tx.wait();
+  }
+
+  return {
+    submitClaim,
+    getClaim,
+    verifyDocumentHash,
+    assignClaimOnChain,
+    updateClaimStatus,
+    getContract,
+  };
 }

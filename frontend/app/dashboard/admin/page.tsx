@@ -1,183 +1,106 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { apiFetch } from "@/lib/api";
-import WalletConnect from "@/components/WalletConnect";
+import { useRole } from "@/hooks/useRole";
+import { INSURANCE_TYPES } from "@/constants/insurance";
 import type { Claim, User } from "@/types";
 
-export default function AdminDashboard() {
+export default function AdminOverview() {
+  const { wallet } = useRole();
   const [claims, setClaims] = useState<Claim[]>([]);
-  const [wallet, setWallet] = useState("");
-  const [activeTab, setActiveTab] = useState<"claims" | "users">("claims");
   const [users, setUsers] = useState<User[]>([]);
-  const [assignModal, setAssignModal] = useState<Claim | null>(null);
-  const [selectedVerifier, setSelectedVerifier] = useState("");
 
   useEffect(() => {
-    const w = localStorage.getItem("wallet") || "";
-    setWallet(w);
-  }, []);
-
-  useEffect(() => {
-    if (wallet) {
-      loadClaims();
-    }
+    if (!wallet) return;
+    apiFetch("/api/claims/all", {}, wallet).then((d) => setClaims(d.claims || []));
+    apiFetch("/api/auth/users", {}, wallet).then((d) => setUsers(d.users || []));
   }, [wallet]);
 
-  async function loadClaims() {
-    try {
-      const data = await apiFetch("/api/claims/all", {}, wallet);
-      setClaims(data.claims || []);
-    } catch {
-      setClaims([]);
-    }
-  }
+  const usersByRole = useMemo(() => {
+    const counts: Record<string, number> = { policyholder: 0, verifier: 0, admin: 0, auditor: 0 };
+    users.forEach((u) => (counts[u.role] = (counts[u.role] || 0) + 1));
+    return counts;
+  }, [users]);
 
-  async function handleAssign() {
-    if (!assignModal || !selectedVerifier) return;
-    try {
-      await apiFetch(
-        `/api/claims/${assignModal.id}/assign`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ verifierId: selectedVerifier }),
-        },
-        wallet
-      );
-      setAssignModal(null);
-      setSelectedVerifier("");
-      loadClaims();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Assignment failed");
-    }
-  }
+  const claimsByStatus = useMemo(() => {
+    const counts: Record<string, number> = { Pending: 0, UnderReview: 0, Approved: 0, Rejected: 0 };
+    claims.forEach((c) => (counts[c.status] = (counts[c.status] || 0) + 1));
+    return counts;
+  }, [claims]);
 
-  const statusColors: Record<string, string> = {
-    Pending: "bg-gray-100 text-gray-600",
-    UnderReview: "bg-yellow-100 text-yellow-700",
-    Approved: "bg-green-100 text-green-700",
-    Rejected: "bg-red-100 text-red-700",
-  };
+  const claimsByType = useMemo(() => {
+    const counts: Record<string, number> = {};
+    INSURANCE_TYPES.forEach((t) => (counts[t.id] = 0));
+    claims.forEach((c) => {
+      if (c.insurance_type) counts[c.insurance_type] = (counts[c.insurance_type] || 0) + 1;
+    });
+    return counts;
+  }, [claims]);
+
+  const unassignedPending = claims.filter((c) => c.status === "Pending").length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm px-8 py-4 flex items-center justify-between">
-        <h1 className="text-lg font-bold text-blue-900">
-          BEICVS — Admin
-        </h1>
-        <WalletConnect />
-      </nav>
+    <div>
+      <h1 className="text-2xl font-bold mb-6">System Overview</h1>
 
-      <div className="max-w-6xl mx-auto px-8 py-8">
-        <div className="flex gap-4 mb-8">
-          <button
-            onClick={() => setActiveTab("claims")}
-            className={`px-4 py-2 rounded-lg font-medium ${activeTab === "claims" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"}`}
-          >
-            All Claims
-          </button>
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`px-4 py-2 rounded-lg font-medium ${activeTab === "users" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"}`}
-          >
-            Users
-          </button>
-        </div>
-
-        {activeTab === "claims" && (
-          <div className="bg-white rounded-xl shadow overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-gray-50 text-left text-gray-500">
-                  <th className="px-4 py-3">ID</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Policyholder</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Submitted</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {claims.map((claim) => (
-                  <tr key={claim.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-3 font-mono text-xs">
-                      {claim.id.slice(0, 8)}
-                    </td>
-                    <td className="px-4 py-3">{claim.claim_type}</td>
-                    <td className="px-4 py-3 text-xs">
-                      {claim.policyholder_id.slice(0, 8)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-xs font-medium px-2 py-1 rounded-full ${statusColors[claim.status] || ""}`}
-                      >
-                        {claim.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs">
-                      {new Date(claim.submitted_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      {claim.status === "Pending" && (
-                        <button
-                          onClick={() => setAssignModal(claim)}
-                          className="text-blue-600 hover:underline text-sm"
-                        >
-                          Assign
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {claims.length === 0 && (
-              <p className="text-center text-gray-400 py-12">No claims found.</p>
-            )}
-          </div>
-        )}
-
-        {activeTab === "users" && (
-          <div className="bg-white rounded-xl shadow p-6">
-            <p className="text-gray-500">
-              User management is available through the Supabase dashboard and
-              the /api/auth/register endpoint.
-            </p>
-          </div>
-        )}
-
-        {assignModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-xl p-8 max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold mb-4">Assign to Verifier</h3>
-              <p className="text-sm text-gray-500 mb-4">
-                Claim: {assignModal.claim_type} ({assignModal.id.slice(0, 8)})
-              </p>
-              <input
-                value={selectedVerifier}
-                onChange={(e) => setSelectedVerifier(e.target.value)}
-                placeholder="Enter verifier user ID"
-                className="w-full border rounded px-3 py-2 mb-4"
-              />
-              <div className="flex gap-3">
-                <button
-                  onClick={handleAssign}
-                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700"
-                >
-                  Assign
-                </button>
-                <button
-                  onClick={() => {
-                    setAssignModal(null);
-                    setSelectedVerifier("");
-                  }}
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white rounded-xl shadow p-5">
+          <p className="text-xs text-gray-500 mb-2">Users by Role</p>
+          {Object.entries(usersByRole).map(([role, n]) => (
+            <div key={role} className="flex justify-between text-sm">
+              <span className="capitalize text-gray-600">{role}</span>
+              <span className="font-medium">{n}</span>
             </div>
-          </div>
-        )}
+          ))}
+        </div>
+        <div className="bg-white rounded-xl shadow p-5">
+          <p className="text-xs text-gray-500 mb-2">Claims by Status</p>
+          {Object.entries(claimsByStatus).map(([status, n]) => (
+            <div key={status} className="flex justify-between text-sm">
+              <span className="text-gray-600">{status}</span>
+              <span className="font-medium">{n}</span>
+            </div>
+          ))}
+        </div>
+        <div className="bg-white rounded-xl shadow p-5">
+          <p className="text-xs text-gray-500 mb-2">Claims by Insurance Type</p>
+          {INSURANCE_TYPES.map((t) => (
+            <div key={t.id} className="flex justify-between text-sm">
+              <span className="text-gray-600">
+                {t.icon} {t.label}
+              </span>
+              <span className="font-medium">{claimsByType[t.id] || 0}</span>
+            </div>
+          ))}
+        </div>
+        <div className={`rounded-xl shadow p-5 ${unassignedPending > 0 ? "bg-amber-50 border border-amber-200" : "bg-white"}`}>
+          <p className="text-xs text-gray-500 mb-1">Unassigned Pending Claims</p>
+          <p className={`text-2xl font-bold ${unassignedPending > 0 ? "text-amber-600" : "text-gray-900"}`}>
+            {unassignedPending}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-4 flex-wrap">
+        <Link
+          href="/dashboard/admin/assign"
+          className="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+        >
+          Assign Pending Claims
+        </Link>
+        <Link
+          href="/dashboard/admin/users"
+          className="bg-white border px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50"
+        >
+          + Add New User
+        </Link>
+        <Link
+          href="/dashboard/admin/assign"
+          className="bg-white border px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50"
+        >
+          View All Claims
+        </Link>
       </div>
     </div>
   );

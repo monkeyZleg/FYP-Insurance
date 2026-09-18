@@ -14,7 +14,7 @@ const {
 
 router.post("/", rbac("policyholder"), createClaim);
 router.get("/pending", rbac("admin"), getPendingClaims);
-router.get("/all", rbac("admin"), getAllClaims);
+router.get("/all", rbac("admin", "verifier", "auditor"), getAllClaims);
 router.get("/my", rbac("policyholder"), getClaimsByWallet);
 router.get(
   "/:id",
