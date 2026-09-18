@@ -27,7 +27,7 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
           <div className="bg-white rounded-xl p-6 shadow-md">
             <div className="text-3xl mb-3">&#x1F512;</div>
-            <h3 className="font-semibold text-lg mb-2">Tamper-Proof</h3>
+            <h3 className="font-semibold text-lg mb-2 text-gray-900">Tamper-Proof</h3>
             <p className="text-sm text-gray-500">
               Every claim status change is recorded immutably on the Ethereum
               blockchain.
@@ -35,14 +35,14 @@ export default function Home() {
           </div>
           <div className="bg-white rounded-xl p-6 shadow-md">
             <div className="text-3xl mb-3">&#x1F50D;</div>
-            <h3 className="font-semibold text-lg mb-2">Transparent</h3>
+            <h3 className="font-semibold text-lg mb-2 text-gray-900">Transparent</h3>
             <p className="text-sm text-gray-500">
               Full audit trail accessible to authorized auditors at any time.
             </p>
           </div>
           <div className="bg-white rounded-xl p-6 shadow-md">
             <div className="text-3xl mb-3">&#x2705;</div>
-            <h3 className="font-semibold text-lg mb-2">Verifiable</h3>
+            <h3 className="font-semibold text-lg mb-2 text-gray-900">Verifiable</h3>
             <p className="text-sm text-gray-500">
               Document integrity verified through SHA-256 hashing anchored
               on-chain.

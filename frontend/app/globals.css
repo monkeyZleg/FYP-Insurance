@@ -3,6 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -12,12 +13,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/*
+ * BEICVS is designed as a light-only dashboard: cards, tables, and modals
+ * throughout assume a white/gray-50 surface with dark text. Following the
+ * OS dark-scheme preference here would flip body text light while those
+ * surfaces stayed white, making most headings unreadable.
+ */
 
 body {
   background: var(--background);
