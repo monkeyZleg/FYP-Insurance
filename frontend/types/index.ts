@@ -63,3 +63,78 @@ export interface Policy {
   is_active: boolean;
   created_at: string;
 }
+
+/* ---- Policyholder Policy Module (buy / renew / pay, simulated) ---- */
+
+export type PolicyPlanType = "motor" | "medical" | "life";
+
+export type PaymentMode = "PayNow" | "Instalment" | "PayLater";
+
+export type PolicyRecordStatus = "PendingPayment" | "Active" | "GracePeriod" | "Lapsed" | "Expired";
+
+export interface PolicyPlan {
+  id: string;
+  type: PolicyPlanType;
+  name: string;
+  tier: "Basic" | "Standard" | "Comprehensive" | "Premium";
+  premium: number;
+  coverageSummary: string;
+  documentChecklist: string[];
+}
+
+export interface InstalmentItem {
+  index: number;
+  dueDate: string;
+  amount: number;
+  paid: boolean;
+  paidDate?: string;
+}
+
+export interface PolicyPaymentRecord {
+  id: string;
+  date: string;
+  amount: number;
+  mode: PaymentMode;
+  reference: string;
+  note: string;
+}
+
+export interface PolicyRecord {
+  id: string;
+  policyNumber: string;
+  holderWallet: string;
+  planId: string;
+  planName: string;
+  policyType: PolicyPlanType;
+  tier: string;
+  premium: number;
+  startDate: string;
+  endDate: string;
+  paymentMode: PaymentMode;
+  totalInstalments: number;
+  paidInstalments: number;
+  instalments: InstalmentItem[];
+  payments: PolicyPaymentRecord[];
+  status: PolicyRecordStatus;
+  nextDueDate: string | null;
+  graceDeadline: string | null;
+  createdAt: string;
+  renewalOf: string | null;
+  events: { action: string; timestamp: string; detail: string }[];
+}
+
+export type ClaimEligibilityReason =
+  | "OK"
+  | "NO_POLICY"
+  | "POLICY_LAPSED"
+  | "POLICY_EXPIRED"
+  | "POLICY_PENDING_PAYMENT"
+  | "OUTSIDE_COVERAGE_PERIOD"
+  | "WRONG_OWNER"
+  | "TYPE_MISMATCH";
+
+export interface ClaimEligibilityResult {
+  eligible: boolean;
+  reasonCode: ClaimEligibilityReason;
+  message: string;
+}

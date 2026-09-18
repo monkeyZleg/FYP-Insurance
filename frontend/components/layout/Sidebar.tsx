@@ -6,6 +6,8 @@ import type { UserRole } from "@/types";
 const NAV: Record<UserRole, { label: string; href: string; icon: string }[]> = {
   policyholder: [
     { label: "Overview", href: "/dashboard/policyholder", icon: "🏠" },
+    { label: "My Policies", href: "/dashboard/policyholder/policies", icon: "🗒️" },
+    { label: "Buy a Policy", href: "/dashboard/policyholder/policies/plans", icon: "🛒" },
     { label: "My Claims", href: "/dashboard/policyholder/claims", icon: "📋" },
     { label: "New Claim", href: "/dashboard/policyholder/claims/new", icon: "➕" },
     { label: "My Documents", href: "/dashboard/policyholder/documents", icon: "📄" },

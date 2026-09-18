@@ -1,11 +1,14 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMetaMask } from "@/hooks/useMetaMask";
 import { useClaimRegistry } from "@/hooks/useContract";
 import { apiFetch } from "@/lib/api";
 import { INSURANCE_TYPES, type InsuranceConfig } from "@/constants/insurance";
-import type { InsuranceType } from "@/types";
+import { CLAIM_TO_POLICY_TYPE } from "@/constants/policyPlans";
+import { eligiblePoliciesForClaim, isEligible } from "@/lib/policyEngine";
+import type { InsuranceType, PolicyRecord } from "@/types";
 import InsuranceTypeCard from "@/components/insurance/InsuranceTypeCard";
 import DocumentUploader, { type UploadedFile } from "@/components/documents/DocumentUploader";
 import BlockchainNote from "@/components/blockchain/BlockchainNote";
@@ -23,6 +26,7 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
   const [step, setStep] = useState<Step>(preselected ? 2 : 1);
   const [insuranceType, setInsuranceType] = useState<InsuranceType | null>(preselected);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [selectedPolicyId, setSelectedPolicyId] = useState("");
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [combinedHash, setCombinedHash] = useState("");
   const [status, setStatus] = useState("");
@@ -30,9 +34,23 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
   const [loading, setLoading] = useState(false);
 
   const config: InsuranceConfig | undefined = INSURANCE_TYPES.find((t) => t.id === insuranceType);
+  const policyNumberField = config?.fields.find((f) => f.role === "policyNumber");
+  const dateFieldConfig = config?.fields.find((f) => f.role === "date");
+  const linksToPolicyModule = insuranceType ? Boolean(CLAIM_TO_POLICY_TYPE[insuranceType]) : false;
+  const myPolicies = address && insuranceType ? eligiblePoliciesForClaim(address, insuranceType) : [];
+
+  const eligibility =
+    address && insuranceType && selectedPolicyId
+      ? isEligible(address, selectedPolicyId, insuranceType, (dateFieldConfig && values[dateFieldConfig.key]) || "")
+      : null;
 
   function setField(key: string, value: string) {
     setValues((v) => ({ ...v, [key]: value }));
+  }
+
+  function selectPolicy(policy: PolicyRecord) {
+    setSelectedPolicyId(policy.id);
+    if (policyNumberField) setField(policyNumberField.key, policy.policyNumber);
   }
 
   function fieldsComplete() {
@@ -147,7 +165,10 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
                 key={t.id}
                 config={t}
                 selected={insuranceType === t.id}
-                onSelect={() => setInsuranceType(t.id)}
+                onSelect={() => {
+                  setInsuranceType(t.id);
+                  setSelectedPolicyId("");
+                }}
               />
             ))}
           </div>
@@ -166,9 +187,52 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
           <h2 className="text-xl font-semibold mb-4">
             {config.icon} {config.label} Claim Details
           </h2>
+          {linksToPolicyModule && (
+            <div className="mb-4">
+              <label className="block text-sm mb-1 font-medium">
+                Policy {policyNumberField?.required && <span className="text-red-500">*</span>}
+              </label>
+              {myPolicies.length === 0 ? (
+                <p className="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">
+                  No active or grace-period {config.label.toLowerCase()} policy found for this wallet.{" "}
+                  <Link href="/dashboard/policyholder/policies/plans" className="underline font-medium">
+                    Buy a policy
+                  </Link>{" "}
+                  before filing this claim, or enter a policy number manually below.
+                </p>
+              ) : (
+                <select
+                  value={selectedPolicyId}
+                  onChange={(e) => {
+                    const policy = myPolicies.find((p) => p.id === e.target.value);
+                    if (policy) selectPolicy(policy);
+                  }}
+                  className="w-full border rounded px-3 py-2"
+                >
+                  <option value="">Select a policy...</option>
+                  {myPolicies.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.policyNumber} — {p.planName} ({p.status})
+                    </option>
+                  ))}
+                </select>
+              )}
+              {eligibility && (
+                <p
+                  className={`text-sm mt-2 px-3 py-2 rounded-lg ${
+                    eligibility.eligible ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                  }`}
+                >
+                  {eligibility.eligible ? "✅ " : "❌ "}
+                  {eligibility.message}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-4">
             {config.fields.map((f) => (
-              <div key={f.key}>
+              <div key={f.key} className={f.role === "policyNumber" && linksToPolicyModule && myPolicies.length > 0 ? "hidden" : ""}>
                 <label className="block text-sm mb-1 font-medium">
                   {f.label} {f.required && <span className="text-red-500">*</span>}
                 </label>
