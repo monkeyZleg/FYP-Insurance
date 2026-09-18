@@ -1,24 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const multer = require("multer");
-const rbac = require("../middleware/rbacMiddleware");
-const {
-  uploadDocuments,
-  getDocumentsByClaim,
-} = require("../controllers/documentController");
+const flexibleAuth = require("../middleware/flexibleAuth");
+const { getDocumentsByClaim } = require("../controllers/documentController");
 
-const upload = multer({ storage: multer.memoryStorage() });
-
-router.post(
-  "/upload",
-  rbac("policyholder"),
-  upload.array("files", 10),
-  uploadDocuments
-);
-router.get(
-  "/:claimId",
-  rbac("policyholder", "verifier", "admin", "auditor"),
-  getDocumentsByClaim
-);
+// Document upload now happens inline with claim submission (POST /api/claims,
+// multipart) so files, their hashes and the claim can be created in one
+// relayer-signed transaction — see claimController.createClaim.
+router.get("/:claimId", flexibleAuth("policyholder", "verifier", "admin", "auditor"), getDocumentsByClaim);
 
 module.exports = router;

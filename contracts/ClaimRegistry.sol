@@ -1,145 +1,234 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-interface IAccessControl {
-    function hasRole(address wallet, bytes32 role) external view returns (bool);
-}
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
+import "./PolicyRegistry.sol";
 
-contract ClaimRegistry {
-    IAccessControl public accessControl;
+/// @title ClaimRegistry
+/// @notice Stores claims, documents, duplicate checks and verifier
+///         decisions for the BEICVS hybrid signing model (Option B).
+///         Answers "what happened to this claim?".
+contract ClaimRegistry is AccessControl, Pausable {
+    bytes32 public constant RELAYER_ROLE = keccak256("RELAYER_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
+    bytes32 public constant AUDITOR_ROLE = keccak256("AUDITOR_ROLE");
 
-    bytes32 constant POLICYHOLDER = keccak256("POLICYHOLDER");
-    bytes32 constant VERIFIER     = keccak256("VERIFIER");
-    bytes32 constant AUDITOR      = keccak256("AUDITOR");
+    uint256 public constant MAX_DOC_HASHES = 10;
 
-    enum ClaimStatus { Pending, UnderReview, Approved, Rejected }
+    PolicyRegistry public immutable policyRegistry;
+
+    enum ClaimStatus { Submitted, UnderReview, Approved, Rejected, Settled }
 
     struct Claim {
-        bytes32     claimId;
-        address     policyHolder;
-        bytes32     documentHash;
-        string      claimType;
-        uint256     submittedAt;
+        bytes32 holderId;
+        uint256 policyId;
+        PolicyRegistry.PolicyType claimType;
+        uint64 incidentDate;
+        uint64 submittedAt;
+        bytes32 detailsHash;        // hash of the off-chain claim form
+        bytes32[] docHashes;        // hashes of uploaded documents (max 10)
+        address assignedVerifier;
+        address decidedBy;
+        uint64 decidedAt;
+        bytes32 remarkHash;         // hash of the verifier's off-chain remark
+        uint8 reasonCode;           // rejection reason
+        bool flagged;               // audit flag
         ClaimStatus status;
-        address     assignedVerifier;
-        string      verifierRemark;
-        uint256     lastUpdatedAt;
     }
 
-    mapping(bytes32 => Claim) public claims;
-    mapping(address => bytes32[]) public policyholderClaims;
-    bytes32[] public allClaimIds;
+    uint256 public claimCount;
+    mapping(uint256 => Claim) private claims;
+    mapping(bytes32 => uint256) public claimByDoc;
+    mapping(bytes32 => uint256) public claimByKey;
+
+    error EmptyDocHashes();
+    error TooManyDocHashes();
+    error EmptyHash();
+    error DuplicateDocument(bytes32 docHash, uint256 existingClaimId);
+    error DuplicateClaimKey(bytes32 claimKey, uint256 existingClaimId);
+    error NotEligible(PolicyRegistry.Reason reason);
+    error ClaimNotFound();
+    error NotAssignedVerifier();
+    error InvalidVerifier();
+    error InvalidStatus();
 
     event ClaimSubmitted(
-        bytes32 indexed claimId,
-        address indexed policyHolder,
-        bytes32 documentHash,
-        string  claimType,
-        uint256 timestamp
+        uint256 indexed claimId,
+        uint256 indexed policyId,
+        bytes32 indexed holderId,
+        bytes32[] docHashes,
+        bytes32 detailsHash
     );
 
-    event ClaimAssigned(
-        bytes32 indexed claimId,
+    event VerifierAssigned(uint256 indexed claimId, address indexed verifier);
+
+    event ClaimDecided(
+        uint256 indexed claimId,
+        bool approve,
         address indexed verifier,
-        uint256 timestamp
+        uint8 reasonCode,
+        bytes32 remarkHash
     );
 
-    event ClaimStatusUpdated(
-        bytes32 indexed claimId,
-        ClaimStatus newStatus,
-        address indexed updatedBy,
-        string  remark,
-        uint256 timestamp
-    );
+    event ClaimSettled(uint256 indexed claimId, bytes32 payoutRefHash);
 
-    constructor(address _accessControl) {
-        accessControl = IAccessControl(_accessControl);
+    event ClaimFlagged(uint256 indexed claimId, address indexed auditor, bytes32 findingHash);
+
+    event DocumentReused(bytes32 indexed docHash, uint256 oldClaimId, uint256 newClaimId);
+
+    constructor(address policyRegistryAddress) {
+        policyRegistry = PolicyRegistry(policyRegistryAddress);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    // ---------------------------------------------------------------
+    // Pause control (Section 8: emergency stop)
+    // ---------------------------------------------------------------
+
+    function pause() external onlyRole(ADMIN_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(ADMIN_ROLE) {
+        _unpause();
+    }
+
+    // ---------------------------------------------------------------
+    // Relayer: submit claim
+    // ---------------------------------------------------------------
 
     function submitClaim(
-        bytes32 documentHash,
-        string calldata claimType
-    ) external returns (bytes32 claimId) {
-        require(
-            accessControl.hasRole(msg.sender, POLICYHOLDER),
-            "Only policyholders can submit claims"
-        );
+        bytes32 holderId,
+        uint256 policyId,
+        PolicyRegistry.PolicyType claimType,
+        uint64 incidentDate,
+        bytes32[] calldata docHashes,
+        bytes32 detailsHash
+    ) external onlyRole(RELAYER_ROLE) whenNotPaused returns (uint256 claimId) {
+        if (docHashes.length == 0) revert EmptyDocHashes();
+        if (docHashes.length > MAX_DOC_HASHES) revert TooManyDocHashes();
 
-        claimId = keccak256(
-            abi.encodePacked(msg.sender, documentHash, block.timestamp)
-        );
+        (bool ok, PolicyRegistry.Reason reason) =
+            policyRegistry.isEligible(policyId, holderId, claimType, incidentDate);
+        if (!ok) revert NotEligible(reason);
 
-        claims[claimId] = Claim({
-            claimId:          claimId,
-            policyHolder:     msg.sender,
-            documentHash:     documentHash,
-            claimType:        claimType,
-            submittedAt:      block.timestamp,
-            status:           ClaimStatus.Pending,
-            assignedVerifier: address(0),
-            verifierRemark:   "",
-            lastUpdatedAt:    block.timestamp
-        });
+        bytes32 claimKey = keccak256(abi.encode(policyId, claimType, incidentDate));
+        uint256 existingKeyClaim = claimByKey[claimKey];
+        if (existingKeyClaim != 0 && claims[existingKeyClaim].status != ClaimStatus.Rejected) {
+            revert DuplicateClaimKey(claimKey, existingKeyClaim);
+        }
 
-        policyholderClaims[msg.sender].push(claimId);
-        allClaimIds.push(claimId);
+        claimId = ++claimCount;
+        Claim storage c = claims[claimId];
+        c.holderId = holderId;
+        c.policyId = policyId;
+        c.claimType = claimType;
+        c.incidentDate = incidentDate;
+        c.submittedAt = uint64(block.timestamp);
+        c.detailsHash = detailsHash;
+        c.status = ClaimStatus.Submitted;
 
-        emit ClaimSubmitted(claimId, msg.sender, documentHash, claimType, block.timestamp);
+        for (uint256 i = 0; i < docHashes.length; i++) {
+            bytes32 h = docHashes[i];
+            if (h == bytes32(0)) revert EmptyHash();
+            uint256 existing = claimByDoc[h];
+            if (existing != 0) {
+                Claim storage old = claims[existing];
+                bool reusable = old.status == ClaimStatus.Rejected && old.holderId == holderId;
+                if (!reusable) revert DuplicateDocument(h, existing);
+                emit DocumentReused(h, existing, claimId);
+            }
+            claimByDoc[h] = claimId;
+            c.docHashes.push(h);
+        }
+
+        claimByKey[claimKey] = claimId;
+
+        emit ClaimSubmitted(claimId, policyId, holderId, docHashes, detailsHash);
     }
 
-    function assignClaim(bytes32 claimId, address verifier) external {
-        claims[claimId].assignedVerifier = verifier;
-        claims[claimId].status           = ClaimStatus.UnderReview;
-        claims[claimId].lastUpdatedAt    = block.timestamp;
+    // ---------------------------------------------------------------
+    // Admin: assign / settle
+    // ---------------------------------------------------------------
 
-        emit ClaimAssigned(claimId, verifier, block.timestamp);
-    }
-
-    function updateClaimStatus(
-        bytes32 claimId,
-        bool    approved,
-        string  calldata remark
-    ) external {
-        require(
-            accessControl.hasRole(msg.sender, VERIFIER),
-            "Only verifiers can update claim status"
-        );
-        require(
-            claims[claimId].assignedVerifier == msg.sender,
-            "Not assigned to this claim"
-        );
-
-        claims[claimId].status         = approved ? ClaimStatus.Approved : ClaimStatus.Rejected;
-        claims[claimId].verifierRemark = remark;
-        claims[claimId].lastUpdatedAt  = block.timestamp;
-
-        emit ClaimStatusUpdated(
-            claimId,
-            claims[claimId].status,
-            msg.sender,
-            remark,
-            block.timestamp
-        );
-    }
-
-    function getClaim(bytes32 claimId) external view returns (Claim memory) {
-        return claims[claimId];
-    }
-
-    function getClaimsByPolicyholder(address wallet)
-        external view returns (bytes32[] memory)
+    function assignVerifier(uint256 claimId, address verifier)
+        external
+        onlyRole(ADMIN_ROLE)
+        whenNotPaused
     {
-        return policyholderClaims[wallet];
+        Claim storage c = claims[claimId];
+        if (c.holderId == bytes32(0)) revert ClaimNotFound();
+        if (c.status != ClaimStatus.Submitted) revert InvalidStatus();
+        if (!hasRole(VERIFIER_ROLE, verifier)) revert InvalidVerifier();
+
+        c.assignedVerifier = verifier;
+        c.status = ClaimStatus.UnderReview;
+
+        emit VerifierAssigned(claimId, verifier);
     }
 
-    function getAllClaimIds() external view returns (bytes32[] memory) {
-        return allClaimIds;
+    function settleClaim(uint256 claimId, bytes32 payoutRefHash)
+        external
+        onlyRole(ADMIN_ROLE)
+        whenNotPaused
+    {
+        Claim storage c = claims[claimId];
+        if (c.holderId == bytes32(0)) revert ClaimNotFound();
+        if (c.status != ClaimStatus.Approved) revert InvalidStatus();
+
+        c.status = ClaimStatus.Settled;
+
+        emit ClaimSettled(claimId, payoutRefHash);
     }
 
-    function verifyDocumentHash(
-        bytes32 claimId,
-        bytes32 hashToCheck
-    ) external view returns (bool) {
-        return claims[claimId].documentHash == hashToCheck;
+    // ---------------------------------------------------------------
+    // Assigned verifier: decide
+    // ---------------------------------------------------------------
+
+    function decideClaim(
+        uint256 claimId,
+        bool approve,
+        uint8 reasonCode,
+        bytes32 remarkHash
+    ) external whenNotPaused {
+        Claim storage c = claims[claimId];
+        if (c.holderId == bytes32(0)) revert ClaimNotFound();
+        if (c.status != ClaimStatus.UnderReview) revert InvalidStatus();
+        if (msg.sender != c.assignedVerifier) revert NotAssignedVerifier();
+
+        c.decidedBy = msg.sender;
+        c.decidedAt = uint64(block.timestamp);
+        c.remarkHash = remarkHash;
+        c.reasonCode = reasonCode;
+        c.status = approve ? ClaimStatus.Approved : ClaimStatus.Rejected;
+
+        emit ClaimDecided(claimId, approve, msg.sender, reasonCode, remarkHash);
+    }
+
+    // ---------------------------------------------------------------
+    // Auditor: flag
+    // ---------------------------------------------------------------
+
+    function flagClaim(uint256 claimId, bytes32 findingHash) external onlyRole(AUDITOR_ROLE) {
+        Claim storage c = claims[claimId];
+        if (c.holderId == bytes32(0)) revert ClaimNotFound();
+
+        c.flagged = true;
+
+        emit ClaimFlagged(claimId, msg.sender, findingHash);
+    }
+
+    // ---------------------------------------------------------------
+    // Views
+    // ---------------------------------------------------------------
+
+    function verifyDocument(uint256 claimId, bytes32 docHash) external view returns (bool) {
+        return claimByDoc[docHash] == claimId && claimId != 0;
+    }
+
+    function getClaim(uint256 claimId) external view returns (Claim memory) {
+        return claims[claimId];
     }
 }
