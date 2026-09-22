@@ -34,8 +34,8 @@ export default function PaymentOptionSelector({
       {options.map((o) => (
         <label
           key={o.value}
-          className={`flex items-start gap-3 border rounded-lg p-4 cursor-pointer ${
-            mode === o.value ? "border-blue-500 bg-blue-50" : "border-gray-200"
+          className={`flex items-start gap-3 border rounded-lg p-4 cursor-pointer transition-colors ${
+            mode === o.value ? "border-chain-indigo bg-[#EEF0FC]" : "border-border"
           } ${o.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
         >
           <input
@@ -47,7 +47,7 @@ export default function PaymentOptionSelector({
             className="mt-1"
           />
           <div>
-            <p className="text-sm font-medium text-gray-900">
+            <p className="text-sm font-medium text-ink">
               {o.label} <span className="text-gray-400 font-normal">{o.labelZh}</span>
             </p>
             <p className="text-xs text-gray-500 mt-0.5">{o.hint}</p>
@@ -63,7 +63,7 @@ export default function PaymentOptionSelector({
               type="button"
               onClick={() => onInstalmentCountChange(n)}
               className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-                instalmentCount === n ? "bg-blue-600 text-white" : "bg-white border text-gray-600"
+                instalmentCount === n ? "bg-chain-indigo text-white" : "bg-white border border-border text-gray-600"
               }`}
             >
               {n}x

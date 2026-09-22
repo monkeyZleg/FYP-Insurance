@@ -183,9 +183,9 @@ function PurchaseFlow() {
             </div>
           )}
 
-          {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+          {error && <p className="text-sm text-failure mb-4">{error}</p>}
 
-          <button onClick={confirmConfigure} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium">
+          <button onClick={confirmConfigure} className="bg-chain-indigo text-white px-6 py-2 rounded-lg font-medium">
             Continue
           </button>
         </div>
@@ -209,12 +209,12 @@ function PurchaseFlow() {
             />
           </div>
           {mode === "PayLater" && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg p-4 mb-6">
+            <div className="bg-[#FFF6E5] border border-[#FFB020]/40 text-[#B8760A] text-sm rounded-lg p-4 mb-6">
               Renewal will be recorded immediately and coverage stays continuous. Full premium must be paid within
               14 days, or the policy will lapse.
             </div>
           )}
-          {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+          {error && <p className="text-sm text-failure mb-4">{error}</p>}
           <div className="flex gap-3">
             <button onClick={() => setStep("configure")} disabled={processing} className="px-4 py-2 border rounded-lg">
               Back
@@ -222,7 +222,7 @@ function PurchaseFlow() {
             <button
               onClick={confirmReview}
               disabled={processing}
-              className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium disabled:opacity-50"
+              className="flex-1 bg-chain-indigo text-white py-2 rounded-lg font-medium disabled:opacity-50"
             >
               {processing ? "Processing..." : mode === "PayLater" ? "Confirm Renewal" : "Continue to Payment"}
             </button>
@@ -242,11 +242,11 @@ function PurchaseFlow() {
               </p>
             )}
           </div>
-          {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+          {error && <p className="text-sm text-failure mb-4">{error}</p>}
           <button
             onClick={simulatePayment}
             disabled={processing}
-            className="w-full bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+            className="w-full bg-ledger-mint text-white py-3 rounded-lg font-medium hover:bg-[#12996F] disabled:opacity-50"
           >
             {processing ? "Processing simulated payment..." : "Simulate Payment"}
           </button>
@@ -268,7 +268,7 @@ function PurchaseFlow() {
           </p>
           <button
             onClick={() => router.push("/dashboard/policyholder/policies")}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium"
+            className="bg-chain-indigo text-white px-6 py-2 rounded-lg font-medium"
           >
             View My Policies
           </button>

@@ -52,10 +52,10 @@ export default function PolicyholderHome() {
     <div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: "Total Claims", value: stats.total, color: "text-gray-900" },
-          { label: "Pending Review", value: stats.pending, color: "text-amber-600" },
-          { label: "Approved", value: stats.approved, color: "text-green-600" },
-          { label: "Rejected", value: stats.rejected, color: "text-red-600" },
+          { label: "Total Claims", value: stats.total, color: "text-ink" },
+          { label: "Pending Review", value: stats.pending, color: "text-[#B8760A]" },
+          { label: "Approved", value: stats.approved, color: "text-[#0F8F70]" },
+          { label: "Rejected", value: stats.rejected, color: "text-failure" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl shadow p-5">
             <p className="text-xs text-gray-500 mb-1">{s.label}</p>
@@ -77,7 +77,7 @@ export default function PolicyholderHome() {
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Recent Claims</h2>
-        <Link href="/dashboard/policyholder/claims" className="text-sm text-blue-600 hover:underline">
+        <Link href="/dashboard/policyholder/claims" className="text-sm text-chain-indigo hover:underline">
           View all →
         </Link>
       </div>
@@ -88,7 +88,7 @@ export default function PolicyholderHome() {
             key={f}
             onClick={() => setFilter(f)}
             className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-              filter === f ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
+              filter === f ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
             }`}
           >
             {f}
@@ -99,7 +99,7 @@ export default function PolicyholderHome() {
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-gray-50 text-left text-gray-500">
+            <tr className="border-b bg-cloud text-left text-gray-500">
               <th className="px-4 py-3">Claim ID</th>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Submitted</th>
@@ -110,7 +110,7 @@ export default function PolicyholderHome() {
           </thead>
           <tbody>
             {filtered.map((c) => (
-              <tr key={c.id} className="border-b hover:bg-gray-50">
+              <tr key={c.id} className="border-b hover:bg-cloud">
                 <td className="px-4 py-3 font-mono text-xs">{c.id.slice(0, 8)}</td>
                 <td className="px-4 py-3">
                   <InsuranceTypeBadge type={c.insurance_type} />
@@ -125,7 +125,7 @@ export default function PolicyholderHome() {
                 <td className="px-4 py-3">
                   <Link
                     href={`/dashboard/policyholder/claims/${c.id}`}
-                    className="text-blue-600 hover:underline text-sm"
+                    className="text-chain-indigo hover:underline text-sm"
                   >
                     View
                   </Link>

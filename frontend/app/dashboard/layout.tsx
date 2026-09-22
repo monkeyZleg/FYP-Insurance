@@ -24,11 +24,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!role) return null;
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-cloud">
       <Sidebar role={role} />
       <div className="flex-1 min-w-0">
         <TopBar title={TITLES[role]} />
-        <main className="px-6 md:px-8 py-8 max-w-6xl mx-auto">{children}</main>
+        <main className="px-6 md:px-8 py-8 max-w-[1200px] mx-auto">{children}</main>
       </div>
     </div>
   );

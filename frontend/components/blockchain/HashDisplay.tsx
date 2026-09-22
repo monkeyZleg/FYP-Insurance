@@ -29,7 +29,7 @@ export default function HashDisplay({
   return (
     <div className="inline-flex items-center gap-2">
       {label && <span className="text-xs text-gray-500">{label}</span>}
-      <code className="text-xs font-mono bg-gray-100 px-2 py-1 rounded break-all">
+      <code className="text-xs font-mono bg-cloud border border-border px-2 py-1 rounded break-all">
         {full ? hash : truncateHash(hash)}
       </code>
       <button
@@ -44,7 +44,7 @@ export default function HashDisplay({
           href={`https://sepolia.etherscan.io/tx/${hash}`}
           target="_blank"
           rel="noreferrer"
-          className="text-xs text-blue-600 hover:underline"
+          className="text-xs text-chain-indigo hover:underline"
         >
           Etherscan ↗
         </a>

@@ -107,33 +107,33 @@ export default function AssignClaimsPage() {
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-2xl font-bold">{view === "assign" ? "Assign Pending Claims" : "Settle Approved Claims"}</h1>
-        <div className="flex gap-2 bg-gray-100 rounded-lg p-1">
+        <div className="flex gap-2 bg-cloud rounded-lg p-1">
           <button
             onClick={() => setView("assign")}
-            className={`text-sm font-medium px-4 py-1.5 rounded-md ${view === "assign" ? "bg-white shadow text-blue-700" : "text-gray-500"}`}
+            className={`text-sm font-medium px-4 py-1.5 rounded-md ${view === "assign" ? "bg-white shadow text-chain-indigo" : "text-gray-500"}`}
           >
             Assign
           </button>
           <button
             onClick={() => setView("settle")}
-            className={`text-sm font-medium px-4 py-1.5 rounded-md ${view === "settle" ? "bg-white shadow text-blue-700" : "text-gray-500"}`}
+            className={`text-sm font-medium px-4 py-1.5 rounded-md ${view === "settle" ? "bg-white shadow text-chain-indigo" : "text-gray-500"}`}
           >
             Settle
           </button>
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+      {error && <p className="text-sm text-failure mb-4">{error}</p>}
 
       {view === "assign" && (
         <div>
           {selected.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex items-center gap-3 flex-wrap">
+            <div className="bg-[#EEF0FC] border border-[#3D4FE0]/25 rounded-lg p-4 mb-4 flex items-center gap-3 flex-wrap">
               <span className="text-sm font-medium">{selected.length} selected</span>
               <select
                 value={bulkVerifier}
                 onChange={(e) => setBulkVerifier(e.target.value)}
-                className="border rounded px-3 py-1.5 text-sm"
+                className="border border-border rounded-lg px-3 py-1.5 text-sm"
               >
                 <option value="">Select verifier...</option>
                 {verifiers.map((v) => (
@@ -145,7 +145,7 @@ export default function AssignClaimsPage() {
               <button
                 onClick={handleBulkAssign}
                 disabled={!bulkVerifier || processing}
-                className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-40"
+                className="bg-chain-indigo text-white px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-40"
               >
                 Bulk Assign
               </button>
@@ -155,7 +155,7 @@ export default function AssignClaimsPage() {
           <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50 text-left text-gray-500">
+                <tr className="border-b bg-cloud text-left text-gray-500">
                   <th className="px-4 py-3">
                     <input
                       type="checkbox"
@@ -172,7 +172,7 @@ export default function AssignClaimsPage() {
               </thead>
               <tbody>
                 {claims.map((c) => (
-                  <tr key={c.id} className="border-b hover:bg-gray-50">
+                  <tr key={c.id} className="border-b hover:bg-cloud">
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
@@ -189,7 +189,7 @@ export default function AssignClaimsPage() {
                     <td className="px-4 py-3 text-xs">{new Date(c.submitted_at).toLocaleDateString()}</td>
                     <td className="px-4 py-3">{c.policyholder?.full_name || c.policyholder_id.slice(0, 8)}</td>
                     <td className="px-4 py-3">
-                      <button onClick={() => setModalClaim(c)} className="text-blue-600 hover:underline">
+                      <button onClick={() => setModalClaim(c)} className="text-chain-indigo hover:underline">
                         Assign
                       </button>
                     </td>
@@ -212,7 +212,7 @@ export default function AssignClaimsPage() {
         <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-gray-50 text-left text-gray-500">
+              <tr className="border-b bg-cloud text-left text-gray-500">
                 <th className="px-4 py-3">Claim ID</th>
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Decided</th>
@@ -222,7 +222,7 @@ export default function AssignClaimsPage() {
             </thead>
             <tbody>
               {approvedClaims.map((c) => (
-                <tr key={c.id} className="border-b hover:bg-gray-50">
+                <tr key={c.id} className="border-b hover:bg-cloud">
                   <td className="px-4 py-3 font-mono text-xs">{c.id.slice(0, 8)}</td>
                   <td className="px-4 py-3">
                     <InsuranceTypeBadge type={c.insurance_type} />
@@ -233,7 +233,7 @@ export default function AssignClaimsPage() {
                     <button
                       onClick={() => handleSettle(c)}
                       disabled={processing}
-                      className="text-blue-600 hover:underline disabled:opacity-40"
+                      className="text-chain-indigo hover:underline disabled:opacity-40"
                     >
                       Settle
                     </button>
@@ -262,7 +262,7 @@ export default function AssignClaimsPage() {
             <select
               value={selectedVerifier}
               onChange={(e) => setSelectedVerifier(e.target.value)}
-              className="w-full border rounded px-3 py-2 mb-4"
+              className="w-full border border-border rounded-lg px-3 py-2 mb-4"
             >
               <option value="">Select verifier...</option>
               {verifiers.map((v) => (
@@ -275,7 +275,7 @@ export default function AssignClaimsPage() {
               <button
                 onClick={handleAssign}
                 disabled={!selectedVerifier || processing}
-                className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-40"
+                className="flex-1 bg-chain-indigo text-white py-2 rounded-lg font-medium hover:bg-[#2F3FC0] disabled:opacity-40"
               >
                 {processing ? "Assigning..." : "Assign"}
               </button>
@@ -284,7 +284,7 @@ export default function AssignClaimsPage() {
                   setModalClaim(null);
                   setSelectedVerifier("");
                 }}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border rounded-lg hover:bg-cloud"
               >
                 Cancel
               </button>

@@ -131,7 +131,7 @@ export default function VerifierReviewPage() {
           {documents.length === 0 && <p className="text-sm text-gray-400">No documents uploaded.</p>}
         </ul>
         {hashCheck !== null && (
-          <p className={`text-sm font-medium ${hashCheck ? "text-green-600" : "text-red-600"}`}>
+          <p className={`text-sm font-medium ${hashCheck ? "text-[#0F8F70]" : "text-failure"}`}>
             {hashCheck ? "Verified — details hash recorded on-chain" : "Hash mismatch — flag for investigation"}
           </p>
         )}
@@ -146,22 +146,22 @@ export default function VerifierReviewPage() {
           value={remark}
           onChange={(e) => setRemark(e.target.value)}
           placeholder="Enter your review remarks (minimum 20 characters)..."
-          className="w-full border rounded px-3 py-2 h-28 mb-1"
+          className="w-full border border-border rounded-lg px-3 py-2 h-28 mb-1"
         />
         <p className="text-xs text-gray-400 mb-4">{remark.trim().length}/20 characters minimum</p>
-        {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+        {error && <p className="text-sm text-failure mb-3">{error}</p>}
         <div className="flex gap-3">
           <button
             onClick={() => setPendingDecision("Approved")}
             disabled={remark.trim().length < 20}
-            className="flex-1 bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 disabled:opacity-40"
+            className="flex-1 bg-ledger-mint text-white py-2 rounded-lg font-medium hover:bg-[#12996F] disabled:opacity-40"
           >
             Approve ✅
           </button>
           <button
             onClick={() => setPendingDecision("Rejected")}
             disabled={remark.trim().length < 20}
-            className="flex-1 bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700 disabled:opacity-40"
+            className="flex-1 bg-failure text-white py-2 rounded-lg font-medium hover:bg-[#C93338] disabled:opacity-40"
           >
             Reject ❌
           </button>
@@ -174,7 +174,7 @@ export default function VerifierReviewPage() {
           <ul className="space-y-2">
             {history.slice(0, 5).map((h) => (
               <li key={h.id} className="flex justify-between text-sm">
-                <Link href={`/dashboard/verifier/claims/${h.id}`} className="text-blue-600 hover:underline">
+                <Link href={`/dashboard/verifier/claims/${h.id}`} className="text-chain-indigo hover:underline">
                   {h.claim_type}
                 </Link>
                 <span className="text-gray-500">{h.status}</span>

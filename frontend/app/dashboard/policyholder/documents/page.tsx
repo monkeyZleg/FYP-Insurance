@@ -40,7 +40,7 @@ export default function MyDocumentsPage() {
       <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-gray-50 text-left text-gray-500">
+            <tr className="border-b bg-cloud text-left text-gray-500">
               <th className="px-4 py-3">File Name</th>
               <th className="px-4 py-3">Claim</th>
               <th className="px-4 py-3">Uploaded</th>
@@ -49,13 +49,13 @@ export default function MyDocumentsPage() {
           </thead>
           <tbody>
             {rows.map((d) => (
-              <tr key={d.id} className="border-b hover:bg-gray-50">
+              <tr key={d.id} className="border-b hover:bg-cloud">
                 <td className="px-4 py-3 font-medium">{d.file_name}</td>
                 <td className="px-4 py-3">
                   {d.claim && (
                     <Link
                       href={`/dashboard/policyholder/claims/${d.claim.id}`}
-                      className="text-blue-600 hover:underline"
+                      className="text-chain-indigo hover:underline"
                     >
                       {d.claim.claim_type}
                     </Link>

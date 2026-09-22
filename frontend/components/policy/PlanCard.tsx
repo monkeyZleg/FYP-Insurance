@@ -6,14 +6,14 @@ export default function PlanCard({ plan, onSelect }: { plan: PolicyPlan; onSelec
   const cfg = POLICY_TYPE_CONFIG[plan.type];
   const meta = PLAN_META[plan.planId];
   return (
-    <div className={`rounded-xl border p-5 ${cfg.bg} border-transparent`}>
+    <div className={`rounded-xl border p-5 ${cfg.bg} border-border hover:border-chain-indigo transition-colors`}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-2xl">{cfg.icon}</span>
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full bg-white ${cfg.text}`}>{plan.tier}</span>
       </div>
-      <h3 className="font-semibold text-lg text-gray-900">{plan.name}</h3>
+      <h3 className="font-semibold text-lg text-ink font-display">{plan.name}</h3>
       {meta && <p className="text-sm text-gray-600 mt-1 mb-3">{meta.coverageSummary}</p>}
-      <p className="text-xl font-bold text-gray-900 mb-3">
+      <p className="text-xl font-bold text-ink mb-3 tabular-nums">
         RM {plan.premiumRM.toLocaleString()}
         <span className="text-xs font-normal text-gray-500"> / 12 months</span>
       </p>

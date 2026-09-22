@@ -6,10 +6,10 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_STYLES: Record<string, string> = {
-  policyholder: "bg-indigo-100 text-indigo-700",
-  verifier: "bg-blue-100 text-blue-700",
-  admin: "bg-slate-200 text-slate-700",
-  auditor: "bg-violet-100 text-violet-700",
+  policyholder: "bg-[#EEF0FC] text-[#3D4FE0]",
+  verifier: "bg-[#EEF0FC] text-[#3D4FE0]",
+  admin: "bg-[#E1E6F5] text-ink",
+  auditor: "bg-[#EEF0FC] text-[#3D4FE0]",
 };
 
 export default function RoleBadge({ role }: { role: string | null }) {

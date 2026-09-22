@@ -60,7 +60,7 @@ export default function VerifierQueue() {
         <button
           onClick={() => setTypeFilter("All")}
           className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-            typeFilter === "All" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
+            typeFilter === "All" ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
           }`}
         >
           All
@@ -70,7 +70,7 @@ export default function VerifierQueue() {
             key={t.id}
             onClick={() => setTypeFilter(t.id)}
             className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-              typeFilter === t.id ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
+              typeFilter === t.id ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
             }`}
           >
             {t.icon} {t.label}
@@ -86,7 +86,7 @@ export default function VerifierQueue() {
                 <span className="text-xs text-gray-400 font-mono">{claim.id.slice(0, 8)}</span>
                 <InsuranceTypeBadge type={claim.insurance_type} />
                 {i === 0 && (
-                  <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">
+                  <span className="text-xs bg-[#FDECEC] text-failure px-2 py-0.5 rounded-full font-medium">
                     Oldest
                   </span>
                 )}
@@ -101,7 +101,7 @@ export default function VerifierQueue() {
             </div>
             <Link
               href={`/dashboard/verifier/claims/${claim.id}`}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 shrink-0"
+              className="bg-chain-indigo text-white px-4 py-2 rounded-lg text-sm hover:bg-[#2F3FC0] shrink-0"
             >
               Review
             </Link>

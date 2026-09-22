@@ -74,9 +74,9 @@ export default function AdminOverview() {
             </div>
           ))}
         </div>
-        <div className={`rounded-xl shadow p-5 ${unassignedPending > 0 ? "bg-amber-50 border border-amber-200" : "bg-white"}`}>
+        <div className={`rounded-xl shadow p-5 ${unassignedPending > 0 ? "bg-[#FFF6E5] border border-[#FFB020]/40" : "bg-white"}`}>
           <p className="text-xs text-gray-500 mb-1">Unassigned Pending Claims</p>
-          <p className={`text-2xl font-bold ${unassignedPending > 0 ? "text-amber-600" : "text-gray-900"}`}>
+          <p className={`text-2xl font-bold ${unassignedPending > 0 ? "text-[#B8760A]" : "text-ink"}`}>
             {unassignedPending}
           </p>
         </div>
@@ -85,19 +85,19 @@ export default function AdminOverview() {
       <div className="flex gap-4 flex-wrap">
         <Link
           href="/dashboard/admin/assign"
-          className="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+          className="bg-chain-indigo text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-[#2F3FC0]"
         >
           Assign Pending Claims
         </Link>
         <Link
           href="/dashboard/admin/users"
-          className="bg-white border px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50"
+          className="bg-white border px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-cloud"
         >
           + Add New User
         </Link>
         <Link
           href="/dashboard/admin/assign"
-          className="bg-white border px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50"
+          className="bg-white border px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-cloud"
         >
           View All Claims
         </Link>

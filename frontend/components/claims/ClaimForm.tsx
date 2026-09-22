@@ -120,16 +120,16 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
             <span
               className={`w-6 h-6 rounded-full flex items-center justify-center ${
                 step === i + 1
-                  ? "bg-blue-600 text-white"
+                  ? "bg-chain-indigo text-white"
                   : step > i + 1
-                    ? "bg-green-500 text-white"
+                    ? "bg-ledger-mint text-white"
                     : "bg-gray-200 text-gray-500"
               }`}
             >
               {step > i + 1 ? "✓" : i + 1}
             </span>
-            <span className={step === i + 1 ? "text-gray-900" : "text-gray-400"}>{label}</span>
-            {i < 3 && <span className="w-6 h-px bg-gray-200 mx-1" />}
+            <span className={step === i + 1 ? "text-ink" : "text-gray-400"}>{label}</span>
+            {i < 3 && <span className="w-6 h-px bg-border mx-1" />}
           </div>
         ))}
       </div>
@@ -153,7 +153,7 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
           <button
             disabled={!insuranceType}
             onClick={() => setStep(2)}
-            className="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-40"
+            className="mt-6 bg-amber-spark text-ink px-6 py-2 rounded-lg font-medium disabled:opacity-40 hover:bg-[#E89D14] transition-colors"
           >
             Continue
           </button>
@@ -168,10 +168,10 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
           {linksToPolicyModule && (
             <div className="mb-4">
               <label className="block text-sm mb-1 font-medium">
-                Policy {policyNumberField?.required && <span className="text-red-500">*</span>}
+                Policy {policyNumberField?.required && <span className="text-failure">*</span>}
               </label>
               {myEligiblePolicies.length === 0 ? (
-                <p className="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">
+                <p className="text-sm bg-[#FFF6E5] border border-[#FFB020]/40 text-[#B8760A] rounded-lg px-3 py-2">
                   No active or grace-period {config.label.toLowerCase()} policy found for your account.{" "}
                   <Link href="/dashboard/policyholder/policies/plans" className="underline font-medium">
                     Buy a policy
@@ -185,7 +185,7 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
                     const policy = myEligiblePolicies.find((p) => p.id === e.target.value);
                     if (policy) selectPolicy(policy);
                   }}
-                  className="w-full border rounded px-3 py-2"
+                  className="w-full border border-border rounded-lg px-3 py-2"
                 >
                   <option value="">Select a policy...</option>
                   {myEligiblePolicies.map((p) => (
@@ -202,13 +202,13 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
             {config.fields.map((f) => (
               <div key={f.key} className={f.role === "policyNumber" && linksToPolicyModule ? "hidden" : ""}>
                 <label className="block text-sm mb-1 font-medium">
-                  {f.label} {f.required && <span className="text-red-500">*</span>}
+                  {f.label} {f.required && <span className="text-failure">*</span>}
                 </label>
                 {f.type === "textarea" ? (
                   <textarea
                     value={values[f.key] || ""}
                     onChange={(e) => setField(f.key, e.target.value)}
-                    className="w-full border rounded px-3 py-2 h-24"
+                    className="w-full border border-border rounded-lg px-3 py-2 h-24"
                     placeholder={f.placeholder}
                     required={f.required}
                   />
@@ -216,7 +216,7 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
                   <select
                     value={values[f.key] || ""}
                     onChange={(e) => setField(f.key, e.target.value)}
-                    className="w-full border rounded px-3 py-2"
+                    className="w-full border border-border rounded-lg px-3 py-2"
                     required={f.required}
                   >
                     <option value="">Select...</option>
@@ -231,7 +231,7 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
                     type={f.type}
                     value={values[f.key] || ""}
                     onChange={(e) => setField(f.key, e.target.value)}
-                    className="w-full border rounded px-3 py-2"
+                    className="w-full border border-border rounded-lg px-3 py-2"
                     placeholder={f.placeholder}
                     required={f.required}
                   />
@@ -240,13 +240,13 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
             ))}
           </div>
           <div className="flex gap-3 mt-6">
-            <button onClick={() => setStep(1)} className="px-4 py-2 border rounded-lg">
+            <button onClick={() => setStep(1)} className="px-4 py-2 border border-border rounded-lg hover:bg-cloud transition-colors">
               Back
             </button>
             <button
               disabled={!fieldsComplete()}
               onClick={() => setStep(3)}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium disabled:opacity-40"
+              className="bg-amber-spark text-ink px-6 py-2 rounded-lg font-medium disabled:opacity-40 hover:bg-[#E89D14] transition-colors"
             >
               Continue
             </button>
@@ -265,12 +265,12 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
             onCombinedHashChange={setCombinedHash}
           />
           <div className="flex gap-3 mt-6">
-            <button onClick={() => setStep(2)} className="px-4 py-2 border rounded-lg">
+            <button onClick={() => setStep(2)} className="px-4 py-2 border border-border rounded-lg hover:bg-cloud transition-colors">
               Back
             </button>
             <button
               onClick={() => setStep(4)}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium"
+              className="bg-amber-spark text-ink px-6 py-2 rounded-lg font-medium hover:bg-[#E89D14] transition-colors"
             >
               Continue
             </button>
@@ -281,7 +281,7 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
       {step === 4 && config && (
         <div>
           <h2 className="text-xl font-semibold mb-4">Review &amp; Submit</h2>
-          <div className="bg-white border rounded-xl p-5 space-y-3 mb-4">
+          <div className="bg-white border border-border rounded-xl p-5 space-y-3 mb-4">
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Insurance Type</span>
               <span className="font-medium">
@@ -309,25 +309,25 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
           <BlockchainNote text="Your claim will be recorded off-chain and, for policy-linked claim types, verified for eligibility and recorded on the blockchain by the platform's relayer wallet on your behalf." />
 
           <div className="flex gap-3 mt-6">
-            <button onClick={() => setStep(3)} disabled={loading} className="px-4 py-2 border rounded-lg">
+            <button onClick={() => setStep(3)} disabled={loading} className="px-4 py-2 border border-border rounded-lg hover:bg-cloud transition-colors">
               Back
             </button>
             <button
               onClick={handleSubmit}
               disabled={loading || !token}
-              className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+              className="flex-1 bg-amber-spark text-ink py-2 rounded-lg font-medium hover:bg-[#E89D14] disabled:opacity-50 transition-colors"
             >
               {loading ? "Submitting..." : "Submit Claim"}
             </button>
           </div>
 
           {status && (
-            <p className={`text-sm mt-4 ${status.startsWith("Error") ? "text-red-600" : "text-green-600"}`}>
+            <p className={`text-sm mt-4 ${status.startsWith("Error") ? "text-failure" : "text-[#0F8F70]"}`}>
               {status}
             </p>
           )}
           {rejectReason && (
-            <p className="text-sm mt-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2">
+            <p className="text-sm mt-2 bg-[#FDECEC] border border-failure/30 text-failure rounded-lg px-3 py-2">
               This claim was not eligible: {rejectReason.message}
             </p>
           )}

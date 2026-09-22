@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetchAuth } from "@/lib/api";
+import Mascot from "@/components/mascot/Mascot";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -31,20 +32,20 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cloud to-[#EEF0FC] px-4">
       <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-2">Create Account</h1>
+        <Mascot mood={done ? "happy" : "neutral"} className="w-14 h-14 mx-auto mb-3" />
+        <h1 className="text-2xl font-bold text-center mb-2 text-ink">Create Account</h1>
         <p className="text-gray-500 text-center text-sm mb-8">
           Register as a policyholder with your email and password
         </p>
 
         {done ? (
           <div className="text-center space-y-4">
-            <p className="text-4xl">✅</p>
             <p className="text-sm text-gray-600">Account created. You can now log in.</p>
             <button
               onClick={() => router.push("/login")}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              className="w-full bg-chain-indigo text-white py-3 rounded-lg font-medium hover:bg-[#2F3FC0] transition-colors"
             >
               Go to Login
             </button>
@@ -57,7 +58,7 @@ export default function RegisterPage() {
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full border rounded px-3 py-2"
+                className="w-full border border-border rounded-lg px-3 py-2"
                 placeholder="Jane Doe"
               />
             </div>
@@ -68,7 +69,7 @@ export default function RegisterPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full border rounded px-3 py-2"
+                className="w-full border border-border rounded-lg px-3 py-2"
                 placeholder="you@example.com"
               />
             </div>
@@ -80,15 +81,15 @@ export default function RegisterPage() {
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full border rounded px-3 py-2"
+                className="w-full border border-border rounded-lg px-3 py-2"
                 placeholder="••••••••"
               />
             </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            {error && <p className="text-failure text-sm">{error}</p>}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="w-full bg-chain-indigo text-white py-3 rounded-lg font-medium hover:bg-[#2F3FC0] disabled:opacity-50 transition-colors"
             >
               {loading ? "Creating account..." : "Create Account"}
             </button>
@@ -97,7 +98,7 @@ export default function RegisterPage() {
 
         <p className="text-sm text-center text-gray-500 mt-6">
           Already have an account?{" "}
-          <Link href="/login" className="text-blue-600 hover:underline font-medium">
+          <Link href="/login" className="text-chain-indigo hover:underline font-medium">
             Log in
           </Link>
         </p>

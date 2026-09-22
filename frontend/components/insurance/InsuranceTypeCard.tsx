@@ -23,7 +23,7 @@ export default function InsuranceTypeCard({
         <span className="text-3xl">{config.icon}</span>
         {selected && <span className={`text-xs font-medium ${config.text}`}>Selected</span>}
       </div>
-      <h3 className="font-semibold text-lg text-gray-900">{config.label}</h3>
+      <h3 className="font-semibold text-lg text-ink font-display">{config.label}</h3>
       <p className="text-xs text-gray-400 mb-2">{config.labelZh}</p>
       <p className="text-sm text-gray-600 mb-4">{config.description}</p>
       {onFileClaim && (

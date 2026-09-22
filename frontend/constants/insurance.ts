@@ -31,10 +31,10 @@ export const INSURANCE_TYPES: InsuranceConfig[] = [
     id: "health",
     label: "Health",
     labelZh: "健康保险",
-    color: "#EF4444",
-    bg: "bg-red-50",
-    border: "border-red-300",
-    text: "text-red-600",
+    color: "#3D4FE0",
+    bg: "bg-[#EEF0FC]",
+    border: "border-[#3D4FE0]",
+    text: "text-[#3D4FE0]",
     icon: "❤️",
     description: "Hospitalisation, outpatient, medical bills, surgery",
     documentHint: "Medical report, bills, receipts, discharge summary",
@@ -51,10 +51,10 @@ export const INSURANCE_TYPES: InsuranceConfig[] = [
     id: "life",
     label: "Life",
     labelZh: "人寿保险",
-    color: "#7C3AED",
-    bg: "bg-purple-50",
-    border: "border-purple-300",
-    text: "text-purple-600",
+    color: "#3D4FE0",
+    bg: "bg-[#EEF0FC]",
+    border: "border-[#3D4FE0]",
+    text: "text-[#3D4FE0]",
     icon: "🛡️",
     description: "Death benefit, critical illness, total permanent disability",
     documentHint: "Death certificate, medical diagnosis, legal documents",
@@ -70,10 +70,10 @@ export const INSURANCE_TYPES: InsuranceConfig[] = [
     id: "transportation",
     label: "Transportation",
     labelZh: "交通保险",
-    color: "#2563EB",
-    bg: "bg-blue-50",
-    border: "border-blue-300",
-    text: "text-blue-600",
+    color: "#3D4FE0",
+    bg: "bg-[#EEF0FC]",
+    border: "border-[#3D4FE0]",
+    text: "text-[#3D4FE0]",
     icon: "🚗",
     description: "Motor accident, vehicle theft, third-party damage, windscreen",
     documentHint: "Police report, photos, repair estimate",
@@ -92,10 +92,10 @@ export const INSURANCE_TYPES: InsuranceConfig[] = [
     id: "flight",
     label: "Flight",
     labelZh: "航空保险",
-    color: "#0EA5E9",
-    bg: "bg-sky-50",
-    border: "border-sky-300",
-    text: "text-sky-600",
+    color: "#3D4FE0",
+    bg: "bg-[#EEF0FC]",
+    border: "border-[#3D4FE0]",
+    text: "text-[#3D4FE0]",
     icon: "✈️",
     description: "Flight delay, cancellation, missed connection, baggage loss",
     documentHint: "Boarding pass, airline notice, baggage receipt",
@@ -116,10 +116,17 @@ export function getInsuranceConfig(type: string | null | undefined): InsuranceCo
   return INSURANCE_TYPES.find((t) => t.id === type);
 }
 
-export const STATUS_CONFIG: Record<string, { label: string; labelZh: string; bg: string; text: string }> = {
-  Submitted: { label: "Submitted", labelZh: "已提交", bg: "bg-amber-100", text: "text-amber-700" },
-  UnderReview: { label: "Under Review", labelZh: "审核中", bg: "bg-blue-100", text: "text-blue-700" },
-  Approved: { label: "Approved", labelZh: "已批准", bg: "bg-green-100", text: "text-green-700" },
-  Rejected: { label: "Rejected", labelZh: "已拒绝", bg: "bg-red-100", text: "text-red-700" },
-  Settled: { label: "Settled", labelZh: "已结算", bg: "bg-purple-100", text: "text-purple-700" },
+// Status color mapping per design spec Part 1.2:
+// Active/Approved/Settled -> ledger-mint, Pending/Grace/UnderReview/Submitted -> amber-spark,
+// Lapsed/Rejected/Expired -> failure red. Dot color (`dot`) drives the row-based status
+// displays; bg/text remain for pill-shaped badges.
+export const STATUS_CONFIG: Record<
+  string,
+  { label: string; labelZh: string; bg: string; text: string; dot: string }
+> = {
+  Submitted: { label: "Submitted", labelZh: "已提交", bg: "bg-[#FFF6E5]", text: "text-[#B8760A]", dot: "#FFB020" },
+  UnderReview: { label: "Under Review", labelZh: "审核中", bg: "bg-[#FFF6E5]", text: "text-[#B8760A]", dot: "#FFB020" },
+  Approved: { label: "Approved", labelZh: "已批准", bg: "bg-[#E6F7F2]", text: "text-[#0F8F70]", dot: "#17B890" },
+  Rejected: { label: "Rejected", labelZh: "已拒绝", bg: "bg-[#FDECEC]", text: "text-[#C93338]", dot: "#E5484D" },
+  Settled: { label: "Settled", labelZh: "已结算", bg: "bg-[#E6F7F2]", text: "text-[#0F8F70]", dot: "#17B890" },
 };

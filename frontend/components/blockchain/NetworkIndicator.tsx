@@ -5,8 +5,8 @@ import { getProvider } from "@/lib/ethers";
 const NETWORKS: Record<number, { label: string; color: string }> = {
   31337: { label: "Hardhat Local", color: "bg-gray-100 text-gray-600" },
   1337: { label: "Hardhat Local", color: "bg-gray-100 text-gray-600" },
-  11155111: { label: "Sepolia Testnet", color: "bg-amber-100 text-amber-700" },
-  1: { label: "Ethereum Mainnet", color: "bg-green-100 text-green-700" },
+  11155111: { label: "Sepolia Testnet", color: "bg-[#FFF6E5] text-[#B8760A]" },
+  1: { label: "Ethereum Mainnet", color: "bg-[#E6F7F2] text-[#0F8F70]" },
 };
 
 export default function NetworkIndicator() {

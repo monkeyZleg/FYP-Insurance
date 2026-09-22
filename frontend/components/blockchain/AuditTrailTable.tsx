@@ -36,16 +36,16 @@ export default function AuditTrailTable({
         </thead>
         <tbody>
           {events.map((e, i) => (
-            <tr key={i} className="border-b hover:bg-gray-50">
+            <tr key={i} className="border-b hover:bg-cloud">
               <td className="py-2 pr-4 font-medium">{e.action}</td>
               <td className="py-2 pr-4 font-mono text-xs">
                 {e.performedBy.slice(0, 6)}...{e.performedBy.slice(-4)}
               </td>
-              <td className="py-2 pr-4">{e.blockNumber}</td>
-              <td className="py-2 pr-4">
+              <td className="py-2 pr-4 tabular-nums">{e.blockNumber}</td>
+              <td className="py-2 pr-4 tabular-nums">
                 {new Date(e.timestamp).toLocaleString()}
               </td>
-              <td className="py-2 font-mono text-xs text-blue-600">
+              <td className="py-2 font-mono text-xs text-chain-indigo">
                 <a
                   href={`https://sepolia.etherscan.io/tx/${e.txHash}`}
                   target="_blank"

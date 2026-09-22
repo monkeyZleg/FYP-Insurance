@@ -10,9 +10,9 @@ export const POLICY_TYPE_CONFIG: Record<
   PolicyPlanType,
   { label: string; labelZh: string; icon: string; bg: string; border: string; text: string; color: string }
 > = {
-  motor: { label: "Motor", labelZh: "车险", icon: "🚗", bg: "bg-blue-50", border: "border-blue-300", text: "text-blue-600", color: "#2563EB" },
-  medical: { label: "Medical", labelZh: "医疗险", icon: "❤️", bg: "bg-red-50", border: "border-red-300", text: "text-red-600", color: "#EF4444" },
-  life: { label: "Life", labelZh: "寿险", icon: "🛡️", bg: "bg-purple-50", border: "border-purple-300", text: "text-purple-600", color: "#7C3AED" },
+  motor: { label: "Motor", labelZh: "车险", icon: "🚗", bg: "bg-[#EEF0FC]", border: "border-[#3D4FE0]", text: "text-[#3D4FE0]", color: "#3D4FE0" },
+  medical: { label: "Medical", labelZh: "医疗险", icon: "❤️", bg: "bg-[#EEF0FC]", border: "border-[#3D4FE0]", text: "text-[#3D4FE0]", color: "#3D4FE0" },
+  life: { label: "Life", labelZh: "寿险", icon: "🛡️", bg: "bg-[#EEF0FC]", border: "border-[#3D4FE0]", text: "text-[#3D4FE0]", color: "#3D4FE0" },
 };
 
 // Claims are filed under the four FRONTEND_FEATURES.md insurance types, while
@@ -40,10 +40,14 @@ export const PLAN_META: Record<number, { coverageSummary: string; documentCheckl
   9: { coverageSummary: "Death, critical illness and total permanent disability, sum assured RM 500,000", documentChecklist: ["Death or disability certificate", "ID"] },
 };
 
-export const POLICY_STATUS_CONFIG: Record<string, { label: string; labelZh: string; bg: string; text: string }> = {
-  PendingPayment: { label: "Pending Payment", labelZh: "待付款", bg: "bg-gray-100", text: "text-gray-600" },
-  Active: { label: "Active", labelZh: "有效", bg: "bg-green-100", text: "text-green-700" },
-  GracePeriod: { label: "Grace Period", labelZh: "宽限期", bg: "bg-amber-100", text: "text-amber-700" },
-  Lapsed: { label: "Lapsed", labelZh: "失效", bg: "bg-red-100", text: "text-red-700" },
-  Expired: { label: "Expired", labelZh: "已过期", bg: "bg-gray-200", text: "text-gray-500" },
+// Status color mapping per design spec Part 1.2 (same table as constants/insurance.ts).
+export const POLICY_STATUS_CONFIG: Record<
+  string,
+  { label: string; labelZh: string; bg: string; text: string; dot: string }
+> = {
+  PendingPayment: { label: "Pending Payment", labelZh: "待付款", bg: "bg-[#FFF6E5]", text: "text-[#B8760A]", dot: "#FFB020" },
+  Active: { label: "Active", labelZh: "有效", bg: "bg-[#E6F7F2]", text: "text-[#0F8F70]", dot: "#17B890" },
+  GracePeriod: { label: "Grace Period", labelZh: "宽限期", bg: "bg-[#FFF6E5]", text: "text-[#B8760A]", dot: "#FFB020" },
+  Lapsed: { label: "Lapsed", labelZh: "失效", bg: "bg-[#FDECEC]", text: "text-[#C93338]", dot: "#E5484D" },
+  Expired: { label: "Expired", labelZh: "已过期", bg: "bg-[#FDECEC]", text: "text-[#C93338]", dot: "#E5484D" },
 };

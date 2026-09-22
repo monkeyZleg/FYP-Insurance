@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMetaMask } from "@/hooks/useMetaMask";
 import { apiFetch, apiFetchAuth } from "@/lib/api";
 import WalletConnect from "@/components/shared/WalletConnect";
+import Mascot from "@/components/mascot/Mascot";
 import type { UserRole } from "@/types";
 
 const DEMO_STAFF_ROLES: { role: UserRole; label: string; icon: string }[] = [
@@ -91,18 +92,19 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cloud to-[#EEF0FC] px-4">
       <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-center mb-2">BEICVS Login</h1>
+        <Mascot mood="neutral" className="w-14 h-14 mx-auto mb-3" />
+        <h1 className="text-2xl font-bold text-center mb-2 text-ink">Welcome back</h1>
         <p className="text-gray-500 text-center text-sm mb-6">
           Sign in as a policyholder, or as staff with your wallet
         </p>
 
-        <div className="grid grid-cols-2 gap-2 mb-6 bg-gray-100 rounded-lg p-1">
+        <div className="grid grid-cols-2 gap-2 mb-6 bg-cloud rounded-lg p-1">
           <button
             onClick={() => setTab("policyholder")}
             className={`text-sm font-medium py-2 rounded-md transition-colors ${
-              tab === "policyholder" ? "bg-white shadow text-blue-700" : "text-gray-500"
+              tab === "policyholder" ? "bg-white shadow text-chain-indigo" : "text-gray-500"
             }`}
           >
             🧑‍💼 Policyholder
@@ -110,7 +112,7 @@ export default function LoginPage() {
           <button
             onClick={() => setTab("staff")}
             className={`text-sm font-medium py-2 rounded-md transition-colors ${
-              tab === "staff" ? "bg-white shadow text-blue-700" : "text-gray-500"
+              tab === "staff" ? "bg-white shadow text-chain-indigo" : "text-gray-500"
             }`}
           >
             🗂️ Staff
@@ -127,7 +129,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full border rounded px-3 py-2"
+                  className="w-full border border-border rounded-lg px-3 py-2"
                   placeholder="you@example.com"
                 />
               </div>
@@ -138,22 +140,22 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border rounded px-3 py-2"
+                  className="w-full border border-border rounded-lg px-3 py-2"
                   placeholder="••••••••"
                 />
               </div>
-              {phError && <p className="text-red-500 text-sm">{phError}</p>}
+              {phError && <p className="text-failure text-sm">{phError}</p>}
               <button
                 type="submit"
                 disabled={phLoading}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="w-full bg-chain-indigo text-white py-3 rounded-lg font-medium hover:bg-[#2F3FC0] disabled:opacity-50 transition-colors"
               >
                 {phLoading ? "Logging in..." : "Login"}
               </button>
             </form>
             <p className="text-sm text-center text-gray-500 mt-4">
               New here?{" "}
-              <Link href="/register" className="text-blue-600 hover:underline font-medium">
+              <Link href="/register" className="text-chain-indigo hover:underline font-medium">
                 Create an account
               </Link>
             </p>
@@ -180,14 +182,14 @@ export default function LoginPage() {
                 <button
                   onClick={handleStaffLogin}
                   disabled={staffLoading}
-                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="w-full bg-chain-indigo text-white py-3 rounded-lg font-medium hover:bg-[#2F3FC0] disabled:opacity-50 transition-colors"
                 >
                   {staffLoading ? "Logging in..." : "Login with Wallet"}
                 </button>
               </div>
             )}
 
-            {staffError && <p className="text-red-500 text-sm text-center mt-4">{staffError}</p>}
+            {staffError && <p className="text-failure text-sm text-center mt-4">{staffError}</p>}
 
             <div className="mt-8 pt-6 border-t">
               <p className="text-xs text-gray-400 text-center mb-3">
@@ -198,7 +200,7 @@ export default function LoginPage() {
                   <button
                     key={r.role}
                     onClick={() => previewAsStaff(r.role)}
-                    className="flex items-center gap-2 justify-center text-sm border rounded-lg py-2 px-3 hover:bg-gray-50 text-gray-600"
+                    className="flex items-center gap-2 justify-center text-sm border border-border rounded-lg py-2 px-3 hover:bg-cloud text-gray-600 transition-colors"
                   >
                     <span>{r.icon}</span>
                     {r.label}

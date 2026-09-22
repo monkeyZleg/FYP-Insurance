@@ -66,7 +66,7 @@ export default function MyClaimsPage() {
           </button>
           <Link
             href="/dashboard/policyholder/claims/new"
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
+            className="bg-chain-indigo text-white px-4 py-2 rounded-lg text-sm hover:bg-[#2F3FC0]"
           >
             + New Claim
           </Link>
@@ -81,7 +81,7 @@ export default function MyClaimsPage() {
             setPage(1);
           }}
           placeholder="Search by Claim ID..."
-          className="border rounded px-3 py-2 text-sm flex-1 min-w-[180px]"
+          className="border border-border rounded-lg px-3 py-2 text-sm flex-1 min-w-[180px]"
         />
         <select
           value={typeFilter}
@@ -89,7 +89,7 @@ export default function MyClaimsPage() {
             setTypeFilter(e.target.value as InsuranceType | "All");
             setPage(1);
           }}
-          className="border rounded px-3 py-2 text-sm"
+          className="border border-border rounded-lg px-3 py-2 text-sm"
         >
           <option value="All">All Types</option>
           {INSURANCE_TYPES.map((t) => (
@@ -104,7 +104,7 @@ export default function MyClaimsPage() {
             setStatusFilter(e.target.value as ClaimStatus | "All");
             setPage(1);
           }}
-          className="border rounded px-3 py-2 text-sm"
+          className="border border-border rounded-lg px-3 py-2 text-sm"
         >
           <option value="All">All Statuses</option>
           <option value="Submitted">Submitted</option>
@@ -115,7 +115,7 @@ export default function MyClaimsPage() {
         </select>
         <button
           onClick={() => setSortAsc((s) => !s)}
-          className="text-sm text-gray-600 border rounded px-3 py-2 hover:bg-gray-50"
+          className="text-sm text-gray-600 border border-border rounded-lg px-3 py-2 hover:bg-cloud"
         >
           Date {sortAsc ? "↑ Oldest" : "↓ Newest"}
         </button>
@@ -124,7 +124,7 @@ export default function MyClaimsPage() {
       <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-gray-50 text-left text-gray-500">
+            <tr className="border-b bg-cloud text-left text-gray-500">
               <th className="px-4 py-3">Claim ID</th>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Submitted</th>
@@ -135,7 +135,7 @@ export default function MyClaimsPage() {
           </thead>
           <tbody>
             {pageItems.map((c) => (
-              <tr key={c.id} className="border-b hover:bg-gray-50">
+              <tr key={c.id} className="border-b hover:bg-cloud">
                 <td className="px-4 py-3 font-mono text-xs">{c.id.slice(0, 8)}</td>
                 <td className="px-4 py-3">
                   <InsuranceTypeBadge type={c.insurance_type} />
@@ -148,7 +148,7 @@ export default function MyClaimsPage() {
                   <HashDisplay hash={c.document_hash} />
                 </td>
                 <td className="px-4 py-3">
-                  <Link href={`/dashboard/policyholder/claims/${c.id}`} className="text-blue-600 hover:underline">
+                  <Link href={`/dashboard/policyholder/claims/${c.id}`} className="text-chain-indigo hover:underline">
                     View
                   </Link>
                 </td>

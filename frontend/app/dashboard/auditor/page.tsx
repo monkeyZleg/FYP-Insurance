@@ -79,18 +79,18 @@ export default function AuditorDashboard() {
         </button>
       </div>
 
-      <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-4 py-3 mb-6">
+      <div className="bg-[#FFF6E5] border border-[#FFB020]/40 text-[#B8760A] text-sm rounded-lg px-4 py-3 mb-6">
         Read-only access — auditors cannot approve, reject, assign, or settle claims, but may flag a claim for
         investigation.
       </div>
 
-      {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+      {error && <p className="text-sm text-failure mb-4">{error}</p>}
 
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => setTypeFilter("All")}
           className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-            typeFilter === "All" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
+            typeFilter === "All" ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
           }`}
         >
           All
@@ -100,7 +100,7 @@ export default function AuditorDashboard() {
             key={t.id}
             onClick={() => setTypeFilter(t.id)}
             className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-              typeFilter === t.id ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
+              typeFilter === t.id ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
             }`}
           >
             {t.icon} {t.label}
@@ -111,7 +111,7 @@ export default function AuditorDashboard() {
       <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto mb-8">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-gray-50 text-left text-gray-500">
+            <tr className="border-b bg-cloud text-left text-gray-500">
               <th className="px-4 py-3">Claim ID</th>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Status</th>
@@ -123,13 +123,13 @@ export default function AuditorDashboard() {
           </thead>
           <tbody>
             {filtered.map((claim) => (
-              <tr key={claim.id} className="border-b hover:bg-gray-50">
+              <tr key={claim.id} className="border-b hover:bg-cloud">
                 <td className="px-4 py-3 font-mono text-xs">{claim.id.slice(0, 8)}</td>
                 <td className="px-4 py-3">
                   <InsuranceTypeBadge type={claim.insurance_type} />
                 </td>
                 <td className="px-4 py-3">{claim.status}</td>
-                <td className="px-4 py-3 font-mono text-xs text-blue-600">
+                <td className="px-4 py-3 font-mono text-xs text-chain-indigo">
                   {claim.submit_tx_hash ? (
                     <a href={`https://sepolia.etherscan.io/tx/${claim.submit_tx_hash}`} target="_blank" rel="noreferrer">
                       {claim.submit_tx_hash.slice(0, 10)}...
@@ -141,12 +141,12 @@ export default function AuditorDashboard() {
                 <td className="px-4 py-3 text-xs">{new Date(claim.submitted_at).toLocaleDateString()}</td>
                 <td className="px-4 py-3">
                   {claim.flagged ? (
-                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-red-100 text-red-700">Flagged</span>
+                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-[#FDECEC] text-failure">Flagged</span>
                   ) : claim.on_chain_claim_id ? (
                     <button
                       onClick={() => handleFlag(claim)}
                       disabled={flagging === claim.id}
-                      className="text-xs text-red-600 hover:underline disabled:opacity-40"
+                      className="text-xs text-failure hover:underline disabled:opacity-40"
                     >
                       {flagging === claim.id ? "Flagging..." : "Flag"}
                     </button>
@@ -160,7 +160,7 @@ export default function AuditorDashboard() {
                       onClick={() =>
                         setSelectedClaimId(selectedClaimId === claim.on_chain_claim_id ? null : claim.on_chain_claim_id)
                       }
-                      className="text-blue-600 hover:underline text-sm"
+                      className="text-chain-indigo hover:underline text-sm"
                     >
                       {selectedClaimId === claim.on_chain_claim_id ? "Hide Trail" : "Audit Trail"}
                     </button>

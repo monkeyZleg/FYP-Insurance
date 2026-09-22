@@ -67,7 +67,7 @@ export default function UserManagementPage() {
         <h1 className="text-2xl font-bold">User Management</h1>
         <button
           onClick={() => setShowAdd(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
+          className="bg-chain-indigo text-white px-4 py-2 rounded-lg text-sm hover:bg-[#2F3FC0]"
         >
           + Add New User
         </button>
@@ -77,7 +77,7 @@ export default function UserManagementPage() {
         <button
           onClick={() => setRoleFilter("All")}
           className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-            roleFilter === "All" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
+            roleFilter === "All" ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
           }`}
         >
           All
@@ -87,7 +87,7 @@ export default function UserManagementPage() {
             key={r}
             onClick={() => setRoleFilter(r)}
             className={`text-sm px-3 py-1.5 rounded-lg font-medium capitalize ${
-              roleFilter === r ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
+              roleFilter === r ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
             }`}
           >
             {r}
@@ -98,7 +98,7 @@ export default function UserManagementPage() {
       <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-gray-50 text-left text-gray-500">
+            <tr className="border-b bg-cloud text-left text-gray-500">
               <th className="px-4 py-3">Wallet Address</th>
               <th className="px-4 py-3">Full Name</th>
               <th className="px-4 py-3">Role</th>
@@ -109,7 +109,7 @@ export default function UserManagementPage() {
           </thead>
           <tbody>
             {filtered.map((u) => (
-              <tr key={u.id} className="border-b hover:bg-gray-50">
+              <tr key={u.id} className="border-b hover:bg-cloud">
                 <td className="px-4 py-3 font-mono text-xs">
                   {u.wallet_address ? `${u.wallet_address.slice(0, 8)}...${u.wallet_address.slice(-6)}` : "— (email login)"}
                 </td>
@@ -118,7 +118,7 @@ export default function UserManagementPage() {
                   <select
                     value={u.role}
                     onChange={(e) => changeRole(u, e.target.value as UserRole)}
-                    className="border rounded px-2 py-1 text-xs capitalize"
+                    className="border border-border rounded-lg px-2 py-1 text-xs capitalize"
                   >
                     {ROLES.map((r) => (
                       <option key={r} value={r}>
@@ -131,14 +131,14 @@ export default function UserManagementPage() {
                 <td className="px-4 py-3">
                   <span
                     className={`text-xs font-medium px-2 py-1 rounded-full ${
-                      u.is_active === false ? "bg-gray-100 text-gray-500" : "bg-green-100 text-green-700"
+                      u.is_active === false ? "bg-gray-100 text-gray-500" : "bg-[#E6F7F2] text-[#0F8F70]"
                     }`}
                   >
                     {u.is_active === false ? "Deactivated" : "Active"}
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <button onClick={() => toggleActive(u)} className="text-xs text-blue-600 hover:underline">
+                  <button onClick={() => toggleActive(u)} className="text-xs text-chain-indigo hover:underline">
                     {u.is_active === false ? "Reactivate" : "Deactivate"}
                   </button>
                 </td>
@@ -165,26 +165,26 @@ export default function UserManagementPage() {
                 value={form.walletAddress}
                 onChange={(e) => setForm((f) => ({ ...f, walletAddress: e.target.value }))}
                 placeholder="Wallet Address (0x...)"
-                className="w-full border rounded px-3 py-2 text-sm font-mono"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm font-mono"
               />
               <input
                 required
                 value={form.fullName}
                 onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
                 placeholder="Full Name"
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm"
               />
               <input
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 placeholder="Email"
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm"
               />
               <select
                 value={form.role}
                 onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
-                className="w-full border rounded px-3 py-2 text-sm capitalize"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm capitalize"
               >
                 {STAFF_ROLES.map((r) => (
                   <option key={r} value={r}>
@@ -196,19 +196,19 @@ export default function UserManagementPage() {
                 Policyholders register themselves with email + password from the login page.
               </p>
             </div>
-            {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+            {error && <p className="text-sm text-failure mt-3">{error}</p>}
             <div className="flex gap-3 mt-5">
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                className="flex-1 bg-chain-indigo text-white py-2 rounded-lg font-medium hover:bg-[#2F3FC0] disabled:opacity-50"
               >
                 {saving ? "Adding..." : "Add User"}
               </button>
               <button
                 type="button"
                 onClick={() => setShowAdd(false)}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border rounded-lg hover:bg-cloud"
               >
                 Cancel
               </button>

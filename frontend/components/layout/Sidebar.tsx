@@ -31,8 +31,8 @@ export default function Sidebar({ role }: { role: UserRole | null }) {
   const items = role ? NAV[role] : [];
 
   return (
-    <aside className="hidden md:flex md:flex-col w-56 shrink-0 bg-white border-r min-h-screen px-3 py-6">
-      <Link href="/" className="px-3 mb-8 text-lg font-bold text-blue-900">
+    <aside className="hidden md:flex md:flex-col w-56 shrink-0 bg-white border-r border-border min-h-screen px-3 py-6">
+      <Link href="/" className="px-3 mb-8 text-lg font-bold text-ink font-display">
         BEICVS
       </Link>
       <nav className="flex flex-col gap-1">
@@ -44,8 +44,8 @@ export default function Sidebar({ role }: { role: UserRole | null }) {
               href={item.href}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 active
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-50"
+                  ? "bg-[#EEF0FC] text-chain-indigo"
+                  : "text-gray-600 hover:bg-cloud"
               }`}
             >
               <span>{item.icon}</span>

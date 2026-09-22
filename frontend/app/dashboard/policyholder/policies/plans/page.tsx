@@ -28,13 +28,13 @@ export default function PlansPage() {
         Sample plans for demonstration only — not real insurer products or pricing.
       </p>
 
-      {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+      {error && <p className="text-sm text-failure mb-4">{error}</p>}
 
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => setTypeFilter("All")}
           className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-            typeFilter === "All" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
+            typeFilter === "All" ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
           }`}
         >
           All
@@ -44,7 +44,7 @@ export default function PlansPage() {
             key={t}
             onClick={() => setTypeFilter(t)}
             className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-              typeFilter === t ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-100"
+              typeFilter === t ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
             }`}
           >
             {POLICY_TYPE_CONFIG[t].icon} {POLICY_TYPE_CONFIG[t].label}

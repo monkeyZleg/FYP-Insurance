@@ -8,9 +8,9 @@ export default function TopBar({ title }: { title: string }) {
   const { role, userName, logout } = useRole();
 
   return (
-    <header className="bg-white shadow-sm px-6 md:px-8 py-4 flex items-center justify-between gap-4 flex-wrap">
+    <header className="bg-white border-b border-border px-6 md:px-8 py-4 flex items-center justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-3">
-        <h1 className="text-lg font-bold text-blue-900">{title}</h1>
+        <h1 className="text-lg font-bold text-ink font-display">{title}</h1>
         <RoleBadge role={role} />
       </div>
       <div className="flex items-center gap-3">

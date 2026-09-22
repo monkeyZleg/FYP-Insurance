@@ -48,21 +48,21 @@ export default function ClaimStatusTracker({ status }: { status: string }) {
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                 step.done
-                  ? "bg-green-500 text-white"
+                  ? "bg-ledger-mint text-white"
                   : step.active
-                    ? "bg-blue-500 text-white"
+                    ? "bg-chain-indigo text-white"
                     : "bg-gray-200 text-gray-500"
               }`}
             >
               {step.done ? "✓" : i + 1}
             </div>
-            <span className="text-xs mt-1 text-center max-w-[80px]">
+            <span className="text-xs mt-1 text-center max-w-[80px] text-ink">
               {step.label}
             </span>
           </div>
           {i < steps.length - 1 && (
             <div
-              className={`h-0.5 w-16 mx-2 ${step.done ? "bg-green-400" : "bg-gray-200"}`}
+              className={`h-0.5 w-16 mx-2 ${step.done ? "bg-ledger-mint" : "bg-border"}`}
             />
           )}
         </div>
