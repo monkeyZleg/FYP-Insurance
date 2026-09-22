@@ -39,14 +39,30 @@ export default function LoginPage() {
 
   async function handlePolicyholderLogin(e: React.FormEvent) {
     e.preventDefault();
+
     setPhLoading(true);
     setPhError("");
-    try {
-      const data = await apiFetchAuth("/api/auth/policyholder/login", {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      });
 
+    try {
+      // Hardcoded login credentials
+      if (email !== "lsk@gmail.com" || password !== "123456") {
+        throw new Error("Invalid email or password");
+      } else {
+        // Redirect to dashboard
+        router.push("/dashboard/policyholder");
+
+      }
+
+      // Mock login data
+      const data = {
+        token: "mock-jwt-token",
+        role: "policyholder",
+        name: "Leong Seng Khuan",
+        userId: "1",
+        holderId: "1",
+      };
+
+      // Store login information
       localStorage.setItem("jwt", data.token);
       localStorage.setItem("role", data.role);
       localStorage.removeItem("wallet");
@@ -54,9 +70,13 @@ export default function LoginPage() {
       localStorage.setItem("userId", data.userId || "");
       localStorage.setItem("holderId", data.holderId || "");
 
+      // Redirect to dashboard
       router.push("/dashboard/policyholder");
+
     } catch (err) {
-      setPhError(err instanceof Error ? err.message : "Login failed");
+      setPhError(
+        err instanceof Error ? err.message : "Login failed"
+      );
     } finally {
       setPhLoading(false);
     }
@@ -103,17 +123,15 @@ export default function LoginPage() {
         <div className="grid grid-cols-2 gap-2 mb-6 bg-cloud rounded-lg p-1">
           <button
             onClick={() => setTab("policyholder")}
-            className={`text-sm font-medium py-2 rounded-md transition-colors ${
-              tab === "policyholder" ? "bg-white shadow text-chain-indigo" : "text-gray-500"
-            }`}
+            className={`text-sm font-medium py-2 rounded-md transition-colors ${tab === "policyholder" ? "bg-white shadow text-chain-indigo" : "text-gray-500"
+              }`}
           >
             🧑‍💼 Policyholder
           </button>
           <button
             onClick={() => setTab("staff")}
-            className={`text-sm font-medium py-2 rounded-md transition-colors ${
-              tab === "staff" ? "bg-white shadow text-chain-indigo" : "text-gray-500"
-            }`}
+            className={`text-sm font-medium py-2 rounded-md transition-colors ${tab === "staff" ? "bg-white shadow text-chain-indigo" : "text-gray-500"
+              }`}
           >
             🗂️ Staff
           </button>
