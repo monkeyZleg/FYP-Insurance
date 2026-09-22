@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import WalletConnect from "@/components/shared/WalletConnect";
 import RoleBadge from "@/components/shared/RoleBadge";
 import NetworkIndicator from "@/components/blockchain/NetworkIndicator";
@@ -19,6 +20,13 @@ export default function TopBar({ title }: { title: string }) {
           <span className="hidden sm:inline text-sm text-gray-500">{userName}</span>
         )}
         {role !== "policyholder" && <WalletConnect />}
+        <Link
+          href="/login"
+          title="Demo convenience — not part of the real product"
+          className="text-xs text-gray-300 hover:text-gray-500 transition-colors"
+        >
+          Switch demo account
+        </Link>
         <button
           onClick={logout}
           className="text-sm text-gray-400 hover:text-gray-700"
