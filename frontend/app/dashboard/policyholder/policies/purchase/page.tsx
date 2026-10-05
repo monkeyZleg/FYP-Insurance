@@ -16,6 +16,21 @@ import InstalmentSchedule from "@/components/policy/InstalmentSchedule";
 import SimulatedPaymentNotice from "@/components/policy/SimulatedPaymentNotice";
 import PolicyStatusBadge from "@/components/policy/PolicyStatusBadge";
 import type { PaymentMode, PolicyPlan, PolicyRow } from "@/types";
+import Link from "next/link";
+import {
+  ArrowLeftRegular,
+  ArrowRightRegular,
+  CartRegular,
+  CheckmarkRegular,
+  LockClosedRegular,
+  PaymentRegular,
+} from "@fluentui/react-icons";
+import PageHeader from "@/components/ui/PageHeader";
+import EmptyState from "@/components/ui/EmptyState";
+import InfoBar from "@/components/ui/InfoBar";
+import Spinner from "@/components/ui/Spinner";
+import CategoryGlyph from "@/components/ui/CategoryGlyph";
+import Mascot from "@/components/mascot/Mascot";
 
 function PurchaseFlow() {
   const router = useRouter();
@@ -61,18 +76,26 @@ function PurchaseFlow() {
     })();
   }, [token, planId, renewId, payId]);
 
-  if (!token) return <p className="text-gray-400">Please log in to continue.</p>;
-  if (!loaded) return <p className="text-gray-400">Loading...</p>;
+  if (!token) return <EmptyState icon={LockClosedRegular} title="Please log in to continue." />;
+  if (!loaded) return <PurchaseSkeleton />;
 
   if (!plan && !renewId && !payId) {
-    return <p className="text-gray-400">No plan selected. Go back to Browse Plans.</p>;
+    return (
+      <EmptyState
+        icon={CartRegular}
+        title="No plan selected"
+        body="Go back to the preset plans and pick one to continue."
+        action={
+          <Link href="/dashboard/policyholder/policies/plans" className="btn btn-accent">
+            Browse plans
+          </Link>
+        }
+      />
+    );
   }
 
-  const typeCfg = plan
-    ? POLICY_TYPE_CONFIG[plan.type]
-    : existingPolicy
-      ? POLICY_TYPE_CONFIG[existingPolicy.policy_type]
-      : null;
+  const planType = plan ? plan.type : existingPolicy ? existingPolicy.policy_type : null;
+  const typeCfg = planType ? POLICY_TYPE_CONFIG[planType] : null;
 
   function confirmConfigure() {
     setError("");
@@ -135,143 +158,187 @@ function PurchaseFlow() {
 
   const premium = plan?.premiumRM ?? existingPolicy?.premium ?? 0;
   const displayPolicy = activePolicy || existingPolicy;
+  const flowSteps = ["Configure", "Review", "Payment"];
+  const stepIndex = step === "configure" ? 0 : step === "review" ? 1 : step === "payment" ? 2 : 3;
+  const modeLabel = mode === "PayLater" ? "Renew first, pay later" : mode === "Instalment" ? `Instalment (${instalmentCount}×)` : "Pay now";
+  const dueNow =
+    step === "payment" && displayPolicy?.payment_mode === "Instalment"
+      ? Math.round((displayPolicy.premium / displayPolicy.total_instalments) * 100) / 100
+      : mode === "Instalment" && step !== "payment"
+        ? Math.round((premium / instalmentCount) * 100) / 100
+        : mode === "PayLater"
+          ? 0
+          : (displayPolicy?.premium ?? premium);
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold mb-6">
-        {renewId ? "Renew Policy" : payId ? "Settle Payment" : "Buy a Policy"}
-      </h1>
+    <div>
+      <PageHeader
+        breadcrumb={[{ label: "My policies", href: "/dashboard/policyholder/policies" }, { label: renewId ? "Renew" : payId ? "Payment" : "Buy" }]}
+        title={renewId ? "Renew policy" : payId ? "Settle payment" : "Buy a policy"}
+      />
 
-      {step === "configure" && (plan || existingPolicy) && (
-        <div>
-          <div className="bg-white rounded-xl shadow p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <span>{typeCfg?.icon}</span>
-              <h2 className="font-semibold text-lg">{plan?.name || existingPolicy?.plan_name}</h2>
-            </div>
-            {existingPolicy && (
-              <p className="text-sm text-gray-500">
-                Current coverage ends {existingPolicy.end_date} — renewal starts from that date.
-              </p>
-            )}
-            {plan && PLAN_META[plan.planId] && <p className="text-sm text-gray-500">{PLAN_META[plan.planId].coverageSummary}</p>}
-            <p className="text-lg font-bold mt-2">RM {premium.toLocaleString()}</p>
-          </div>
-
-          <div className="bg-white rounded-xl shadow p-6 mb-6">
-            <h3 className="font-semibold mb-4">Payment Option</h3>
-            <PaymentOptionSelector
-              mode={mode}
-              onModeChange={setMode}
-              instalmentCount={instalmentCount}
-              onInstalmentCountChange={setInstalmentCount}
-              allowPayLater={Boolean(renewId)}
-            />
-          </div>
-
-          {mode === "Instalment" && (
-            <div className="bg-white rounded-xl shadow p-6 mb-6">
-              <h3 className="font-semibold mb-4">Instalment Schedule Preview</h3>
-              <InstalmentSchedule
-                premium={premium}
-                instalments={Array.from({ length: instalmentCount }, (_, i) => ({
-                  index: i + 1,
-                  dueDate: "",
-                  paid: false,
-                }))}
-              />
-            </div>
-          )}
-
-          {error && <p className="text-sm text-failure mb-4">{error}</p>}
-
-          <button onClick={confirmConfigure} className="bg-chain-indigo text-white px-6 py-2 rounded-lg font-medium">
-            Continue
-          </button>
-        </div>
+      {step !== "done" && (
+        <ol className="enter mb-6 grid max-w-xl grid-cols-3 gap-2" aria-label="Steps">
+          {flowSteps.map((label, i) => {
+            const done = stepIndex > i;
+            const current = stepIndex === i;
+            return (
+              <li key={label} aria-current={current ? "step" : undefined}>
+                <div className="h-1 overflow-hidden rounded-full bg-[var(--control-stroke-secondary)]">
+                  <div
+                    className="h-full rounded-full transition-[width] duration-500 ease-[cubic-bezier(0.1,0.9,0.2,1)]"
+                    style={{ width: done || current ? "100%" : "0%", background: done ? "var(--success)" : "var(--accent-fill)" }}
+                  />
+                </div>
+                <p className={`mt-2 flex items-center gap-1.5 t-caption ${current ? "font-semibold text-fg" : done ? "text-fg-2" : "text-fg-3"}`}>
+                  {done ? <CheckmarkRegular fontSize={12} className="text-[var(--success)]" aria-hidden /> : <span>{i + 1}.</span>}
+                  {label}
+                </p>
+              </li>
+            );
+          })}
+        </ol>
       )}
 
-      {step === "review" && (
-        <div>
-          <div className="bg-white rounded-xl shadow p-6 mb-6 space-y-2">
-            <h3 className="font-semibold mb-2">Review</h3>
-            <Row label="Plan" value={plan?.name || existingPolicy?.plan_name || ""} />
-            <Row label="Premium" value={`RM ${premium.toLocaleString()}`} />
-            <Row
-              label="Payment Option"
-              value={
-                mode === "PayLater"
-                  ? "Renew first, pay later"
-                  : mode === "Instalment"
-                    ? `Instalment (${instalmentCount}x)`
-                    : "Pay now"
-              }
-            />
-          </div>
-          {mode === "PayLater" && (
-            <div className="bg-[#FFF6E5] border border-[#FFB020]/40 text-[#B8760A] text-sm rounded-lg p-4 mb-6">
-              Renewal will be recorded immediately and coverage stays continuous. Full premium must be paid within
-              14 days, or the policy will lapse.
-            </div>
-          )}
-          {error && <p className="text-sm text-failure mb-4">{error}</p>}
-          <div className="flex gap-3">
-            <button onClick={() => setStep("configure")} disabled={processing} className="px-4 py-2 border rounded-lg">
-              Back
-            </button>
-            <button
-              onClick={confirmReview}
-              disabled={processing}
-              className="flex-1 bg-chain-indigo text-white py-2 rounded-lg font-medium disabled:opacity-50"
-            >
-              {processing ? "Processing..." : mode === "PayLater" ? "Confirm Renewal" : "Continue to Payment"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === "payment" && (
-        <div>
-          <SimulatedPaymentNotice />
-          <div className="bg-white rounded-xl shadow p-6 my-6">
-            <h3 className="font-semibold mb-2">Amount Due</h3>
-            <p className="text-3xl font-bold">RM {(displayPolicy?.premium ?? premium ?? 0).toLocaleString()}</p>
-            {displayPolicy?.payment_mode === "Instalment" && (
-              <p className="text-xs text-gray-400 mt-1">
-                Instalment {displayPolicy.paid_instalments + 1} of {displayPolicy.total_instalments}
-              </p>
-            )}
-          </div>
-          {error && <p className="text-sm text-failure mb-4">{error}</p>}
-          <button
-            onClick={simulatePayment}
-            disabled={processing}
-            className="w-full bg-ledger-mint text-white py-3 rounded-lg font-medium hover:bg-[#12996F] disabled:opacity-50"
-          >
-            {processing ? "Processing simulated payment..." : "Simulate Payment"}
-          </button>
-        </div>
-      )}
-
-      {step === "done" && resultPolicy && (
-        <div className="bg-white rounded-xl shadow p-8 text-center">
-          <p className="text-4xl mb-3">✅</p>
-          <h2 className="text-xl font-bold mb-2">
-            {resultPolicy.status === "Active" ? "Policy Active" : "Renewal Recorded"}
-          </h2>
-          <div className="flex justify-center mb-4">
+      {step === "done" && resultPolicy ? (
+        <div className="card pop-in mx-auto max-w-lg p-8 text-center sm:p-10">
+          <Mascot mood="happy" className="mx-auto mb-4 h-20 w-20" />
+          <h2 className="t-title text-fg">{resultPolicy.status === "Active" ? "You're covered" : "Renewal recorded"}</h2>
+          <div className="mt-3 flex justify-center">
             <PolicyStatusBadge status={resultPolicy.status} />
           </div>
-          <p className="text-sm text-gray-500 mb-6">
-            Policy {resultPolicy.policy_number} covers {resultPolicy.start_date} to {resultPolicy.end_date}.
+          <p className="mt-4 t-body text-fg-2">
+            Policy <span className="font-mono text-fg">{resultPolicy.policy_number}</span> covers {resultPolicy.start_date} to {resultPolicy.end_date}.
             {resultPolicy.pay_deadline && ` Pay in full by ${resultPolicy.pay_deadline} to keep coverage active.`}
           </p>
-          <button
-            onClick={() => router.push("/dashboard/policyholder/policies")}
-            className="bg-chain-indigo text-white px-6 py-2 rounded-lg font-medium"
-          >
-            View My Policies
+          <button onClick={() => router.push("/dashboard/policyholder/policies")} className="btn btn-accent btn-lg nudge mt-8">
+            View my policies <ArrowRightRegular />
           </button>
+        </div>
+      ) : (
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div key={step} className="enter min-w-0 space-y-5">
+            {step === "configure" && (plan || existingPolicy) && (
+              <>
+                <section className="card p-5 sm:p-6">
+                  <h2 className="t-subtitle text-fg">How would you like to pay?</h2>
+                  {existingPolicy && (
+                    <p className="mt-1 t-body text-fg-2">Current coverage ends {existingPolicy.end_date} — renewal starts from that date.</p>
+                  )}
+                  <div className="mt-5">
+                    <PaymentOptionSelector
+                      mode={mode}
+                      onModeChange={setMode}
+                      instalmentCount={instalmentCount}
+                      onInstalmentCountChange={setInstalmentCount}
+                      allowPayLater={Boolean(renewId)}
+                    />
+                  </div>
+                </section>
+
+                {mode === "Instalment" && (
+                  <section className="card fade-in p-5 sm:p-6">
+                    <h3 className="mb-4 t-body-strong text-fg">Instalment schedule preview</h3>
+                    <InstalmentSchedule
+                      premium={premium}
+                      instalments={Array.from({ length: instalmentCount }, (_, i) => ({ index: i + 1, dueDate: "", paid: false }))}
+                    />
+                  </section>
+                )}
+
+                {error && <InfoBar severity="error">{error}</InfoBar>}
+
+                <div className="flex justify-end">
+                  <button onClick={confirmConfigure} className="btn btn-accent btn-lg nudge">
+                    Continue <ArrowRightRegular />
+                  </button>
+                </div>
+              </>
+            )}
+
+            {step === "review" && (
+              <>
+                <section className="card overflow-hidden">
+                  <h2 className="border-b border-[var(--divider-stroke)] px-5 py-3.5 t-body-strong text-fg">Review</h2>
+                  <dl className="divide-y divide-[var(--divider-stroke)]">
+                    <Row label="Plan" value={plan?.name || existingPolicy?.plan_name || ""} />
+                    <Row label="Premium" value={`RM ${premium.toLocaleString()}`} />
+                    <Row label="Payment option" value={modeLabel} />
+                  </dl>
+                </section>
+                {mode === "PayLater" && (
+                  <InfoBar severity="warning" title="Pay within 14 days.">
+                    Renewal will be recorded immediately and coverage stays continuous. Full premium must be paid within 14 days, or the
+                    policy will lapse.
+                  </InfoBar>
+                )}
+                {error && <InfoBar severity="error">{error}</InfoBar>}
+                <div className="flex justify-between gap-3">
+                  <button onClick={() => setStep("configure")} disabled={processing} className="btn btn-lg">
+                    <ArrowLeftRegular /> Back
+                  </button>
+                  <button onClick={confirmReview} disabled={processing} className="btn btn-accent btn-lg">
+                    {processing && <Spinner />}
+                    {processing ? "Processing…" : mode === "PayLater" ? "Confirm renewal" : "Continue to payment"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {step === "payment" && (
+              <>
+                <SimulatedPaymentNotice />
+                <section className="card relative overflow-hidden p-6 sm:p-8">
+                  <div aria-hidden className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[var(--accent-subtle-strong)] blur-2xl" />
+                  <p className="t-body text-fg-2">Amount due</p>
+                  <p className="mt-1 font-display text-[44px] font-semibold leading-none tracking-tight text-fg tabular-nums">
+                    <span className="mr-1 t-body-large text-fg-2">RM</span>
+                    {(displayPolicy?.premium ?? premium ?? 0).toLocaleString()}
+                  </p>
+                  {displayPolicy?.payment_mode === "Instalment" && (
+                    <p className="mt-2 t-body text-fg-2">
+                      Instalment {displayPolicy.paid_instalments + 1} of {displayPolicy.total_instalments}
+                    </p>
+                  )}
+                </section>
+                {error && <InfoBar severity="error">{error}</InfoBar>}
+                <button onClick={simulatePayment} disabled={processing} className="btn btn-success btn-xl btn-block">
+                  {processing ? <Spinner /> : <PaymentRegular />}
+                  {processing ? "Processing simulated payment…" : "Simulate payment"}
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* order summary */}
+          <aside className="enter enter-2 lg:sticky lg:top-20">
+            <div className="card overflow-hidden">
+              <div className="flex items-center gap-3 border-b border-[var(--divider-stroke)] p-5">
+                <CategoryGlyph type={planType} variant="solid" size={44} />
+                <div className="min-w-0">
+                  <p className="t-body-strong text-fg truncate">{plan?.name || existingPolicy?.plan_name}</p>
+                  <p className="t-caption text-fg-2">
+                    {typeCfg?.label} insurance {plan ? `· ${plan.tier}` : existingPolicy ? `· ${existingPolicy.policy_number}` : ""}
+                  </p>
+                </div>
+              </div>
+              {plan && PLAN_META[plan.planId] && <p className="border-b border-[var(--divider-stroke)] px-5 py-4 t-body text-fg-2">{PLAN_META[plan.planId].coverageSummary}</p>}
+              <dl className="space-y-2.5 px-5 py-4 t-body">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-fg-2">Premium (12 months)</dt>
+                  <dd className="text-fg tabular-nums">RM {premium.toLocaleString()}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-fg-2">Payment</dt>
+                  <dd className="text-fg text-right">{step === "payment" && displayPolicy ? displayPolicy.payment_mode : modeLabel}</dd>
+                </div>
+              </dl>
+              <div className="flex items-baseline justify-between border-t border-[var(--divider-stroke)] bg-[var(--card-fill-secondary)] px-5 py-4">
+                <span className="t-body-strong text-fg">Due now</span>
+                <span className="font-display text-[22px] font-semibold text-fg tabular-nums">RM {dueNow.toLocaleString()}</span>
+              </div>
+            </div>
+          </aside>
         </div>
       )}
     </div>
@@ -280,9 +347,21 @@ function PurchaseFlow() {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between text-sm">
-      <span className="text-gray-500">{label}</span>
-      <span className="font-medium">{value}</span>
+    <div className="flex justify-between gap-4 px-5 py-3 t-body">
+      <dt className="text-fg-2">{label}</dt>
+      <dd className="text-fg text-right">{value}</dd>
+    </div>
+  );
+}
+
+function PurchaseSkeleton() {
+  return (
+    <div aria-busy>
+      <div className="skeleton mb-8 h-9 w-64" />
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="skeleton h-80" />
+        <div className="skeleton h-64" />
+      </div>
     </div>
   );
 }

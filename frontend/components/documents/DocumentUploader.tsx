@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sha256File, sha256Files, truncateHash } from "@/lib/hash";
 import { safeTimeline } from "@/lib/motion";
+import { CheckmarkCircleFilled, CloudArrowUpRegular, DeleteRegular, FingerprintRegular } from "@fluentui/react-icons";
+import InfoBar from "@/components/ui/InfoBar";
 
 const ACCEPTED = [".pdf", ".jpg", ".jpeg", ".png", ".docx"];
 const MAX_SIZE = 10 * 1024 * 1024;
@@ -24,6 +26,7 @@ export default function DocumentUploader({
 }) {
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState("");
+  const [hashing, setHashing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const prevCount = useRef(files.length);
 
@@ -32,7 +35,7 @@ export default function DocumentUploader({
   useEffect(() => {
     if (files.length > prevCount.current && containerRef.current) {
       const container = containerRef.current;
-      const chips = container.querySelectorAll(".hash-chip");
+      const chips = container.querySelectorAll(".file-hash");
       const badges = container.querySelectorAll(".check-badge");
       const lastChip = chips[chips.length - 1];
       const lastBadge = badges[badges.length - 1];
@@ -68,10 +71,12 @@ export default function DocumentUploader({
         }
       }
 
+      setHashing(true);
       const hashed: UploadedFile[] = await Promise.all(
         incoming.map(async (file) => ({ file, hash: await sha256File(file) }))
       );
 
+      setHashing(false);
       const updated = [...files, ...hashed];
       onChange(updated);
 
@@ -94,7 +99,7 @@ export default function DocumentUploader({
 
   return (
     <div ref={containerRef}>
-      <div
+      <label
         onDragOver={(e) => {
           e.preventDefault();
           setDragOver(true);
@@ -105,66 +110,67 @@ export default function DocumentUploader({
           setDragOver(false);
           addFiles(e.dataTransfer.files);
         }}
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-          dragOver ? "border-chain-indigo bg-[#EEF0FC]" : "border-border"
+        className={`group relative flex cursor-pointer flex-col items-center rounded-[var(--radius-overlay)] border-2 border-dashed px-6 py-10 text-center transition-[background-color,border-color] duration-200 ${
+          dragOver
+            ? "border-[var(--accent-fill)] bg-[var(--accent-subtle)]"
+            : "border-[var(--control-stroke-secondary)] bg-[var(--control-alt-fill-secondary)] hover:border-[var(--control-strong-stroke)] hover:bg-[var(--subtle-fill-tertiary)]"
         }`}
       >
-        <div className="upload-icon inline-block text-3xl mb-2">📎</div>
-        <p className="text-sm text-gray-500 mb-2">
-          Drag and drop files here, or
-        </p>
-        <label className="inline-block bg-chain-indigo text-white text-sm font-medium px-4 py-2 rounded-lg cursor-pointer hover:bg-[#2F3FC0] transition-colors">
-          Browse Files
-          <input
-            type="file"
-            multiple
-            accept={ACCEPTED.join(",")}
-            className="hidden"
-            onChange={(e) => addFiles(e.target.files)}
-          />
-        </label>
-        <p className="text-xs text-gray-400 mt-3">
-          PDF, JPG, PNG, DOCX — max 10MB per file
-        </p>
-      </div>
+        <span
+          className={`upload-icon mb-3 grid h-14 w-14 place-items-center rounded-full transition-transform duration-300 ease-[cubic-bezier(0.1,0.9,0.2,1)] ${
+            dragOver ? "-translate-y-1 scale-110" : "group-hover:-translate-y-0.5"
+          }`}
+          style={{ background: "var(--accent-subtle-strong)" }}
+        >
+          <CloudArrowUpRegular fontSize={28} className="text-accent-text" aria-hidden />
+        </span>
+        <span className="t-body-strong text-fg">{dragOver ? "Drop to add" : "Drag files here"}</span>
+        <span className="mt-1 t-body text-fg-2">
+          or <span className="link font-semibold">browse your device</span>
+        </span>
+        <span className="mt-3 t-caption text-fg-3">PDF, JPG, PNG, DOCX — max 10MB per file</span>
+        <input type="file" multiple accept={ACCEPTED.join(",")} className="sr-only" onChange={(e) => addFiles(e.target.files)} />
+      </label>
 
-      {error && <p className="text-sm text-failure mt-2">{error}</p>}
+      {error && (
+        <InfoBar severity="error" className="mt-3" onDismiss={() => setError("")}>
+          {error}
+        </InfoBar>
+      )}
 
-      {files.length > 0 && (
-        <ul className="mt-4 space-y-2">
+      {(files.length > 0 || hashing) && (
+        <ul className="mt-4 divide-y divide-[var(--divider-stroke)] rounded-[var(--radius-overlay)] border border-[var(--card-stroke)] bg-[var(--card-fill)]">
           {files.map((f, i) => (
-            <li
-              key={i}
-              className="flex items-center justify-between bg-cloud rounded-lg px-3 py-2 text-sm"
-            >
-              <div className="min-w-0 flex items-center gap-2">
-                <span className="check-badge text-[#17B890] text-sm shrink-0">✓</span>
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{f.file.name}</p>
-                  <p className="hash-chip text-xs font-mono text-gray-400 truncate">
-                    {truncateHash(f.hash)}
-                  </p>
-                </div>
+            <li key={i} className="flex items-center gap-3 px-3 py-2.5">
+              <CheckmarkCircleFilled className="check-badge shrink-0 text-[var(--success)]" fontSize={20} aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="truncate t-body-strong text-fg">{f.file.name}</p>
+                <p className="file-hash truncate font-mono text-[12px] leading-4 text-fg-2">
+                  <span className="text-fg-3">sha256 </span>
+                  {truncateHash(f.hash)}
+                </p>
               </div>
-              <button
-                onClick={() => removeFile(i)}
-                className="text-failure hover:opacity-70 text-xs ml-3 shrink-0"
-              >
-                Remove
+              <span className="hidden t-caption text-fg-3 tabular-nums sm:inline">{(f.file.size / 1024).toFixed(0)} KB</span>
+              <button type="button" onClick={() => removeFile(i)} className="btn btn-subtle btn-icon" aria-label={`Remove ${f.file.name}`}>
+                <DeleteRegular />
               </button>
             </li>
           ))}
+          {hashing && (
+            <li className="flex items-center gap-3 px-3 py-2.5 t-body text-fg-2">
+              <span className="skeleton h-5 w-5 !rounded-full" /> Fingerprinting…
+            </li>
+          )}
         </ul>
       )}
 
       {combinedHash && (
-        <div className="mt-4 bg-[#EEF0FC] border border-[#3D4FE0]/25 rounded-lg p-3">
-          <p className="text-xs text-chain-indigo font-medium mb-1">
-            Combined SHA-256 Document Hash
-          </p>
-          <code className="text-xs font-mono break-all text-ink">
-            {combinedHash}
-          </code>
+        <div className="mt-4 flex items-start gap-3 rounded-[var(--radius-overlay)] border border-[var(--card-stroke)] p-3.5 fade-in" style={{ background: "var(--accent-subtle)" }}>
+          <FingerprintRegular fontSize={20} className="mt-0.5 shrink-0 text-accent-text" aria-hidden />
+          <div className="min-w-0">
+            <p className="t-caption font-semibold text-accent-text">Combined SHA-256 document hash</p>
+            <code className="mt-0.5 block break-all font-mono text-[12px] leading-[18px] text-fg">{combinedHash}</code>
+          </div>
         </div>
       )}
     </div>

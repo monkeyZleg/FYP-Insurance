@@ -1,15 +1,31 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  ArrowRightRegular,
+  CalendarClockRegular,
+  CheckmarkCircleRegular,
+  ClockAlarmRegular,
+  TaskListSquareLtrRegular,
+} from "@fluentui/react-icons";
 import { apiFetch } from "@/lib/api";
 import { useRole } from "@/hooks/useRole";
-import { INSURANCE_TYPES } from "@/constants/insurance";
-import InsuranceTypeBadge from "@/components/insurance/InsuranceTypeBadge";
+import CategoryGlyph from "@/components/ui/CategoryGlyph";
+import PageHeader from "@/components/ui/PageHeader";
+import StatCard from "@/components/ui/StatCard";
+import EmptyState from "@/components/ui/EmptyState";
+import TypeFilter from "@/components/insurance/TypeFilter";
 import type { Claim, InsuranceType } from "@/types";
+
+function ageLabel(iso: string) {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 864e5);
+  return days <= 0 ? "today" : days === 1 ? "1 day ago" : `${days} days ago`;
+}
 
 export default function VerifierQueue() {
   const { wallet, userName } = useRole();
   const [claims, setClaims] = useState<Claim[]>([]);
+  const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<InsuranceType | "All">("All");
 
   async function loadClaims() {
@@ -24,6 +40,8 @@ export default function VerifierQueue() {
       setClaims(assigned);
     } catch {
       setClaims([]);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -38,6 +56,12 @@ export default function VerifierQueue() {
     [claims, typeFilter]
   );
 
+  const counts = useMemo(() => {
+    const m: Record<string, number> = { All: claims.length };
+    claims.forEach((c) => c.insurance_type && (m[c.insurance_type] = (m[c.insurance_type] || 0) + 1));
+    return m;
+  }, [claims]);
+
   const reviewedToday = useMemo(() => {
     const today = new Date().toDateString();
     return claims.filter((c) => new Date(c.last_updated_at).toDateString() === today && c.status !== "UnderReview").length;
@@ -45,81 +69,66 @@ export default function VerifierQueue() {
 
   return (
     <div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <Stat label="Claims Assigned" value={claims.length} />
-        <Stat label="Reviewed Today" value={reviewedToday} />
-        <Stat label="Pending Action" value={claims.length} />
+      <PageHeader
+        title="Claims queue"
+        description={userName ? `Reviewer: ${userName}. Oldest claims are listed first.` : "Oldest claims are listed first."}
+      />
+
+      <div className="stagger mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+        <StatCard label="Claims assigned" value={claims.length} icon={TaskListSquareLtrRegular} />
+        <StatCard label="Reviewed today" value={reviewedToday} icon={CheckmarkCircleRegular} tone="var(--success)" />
+        <StatCard label="Pending action" value={claims.length} icon={ClockAlarmRegular} tone="var(--caution-solid)" />
       </div>
 
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <h1 className="text-2xl font-bold">Claims Queue</h1>
-        {userName && <span className="text-sm text-gray-500">Reviewer: {userName}</span>}
+      <div className="mb-4">
+        <TypeFilter value={typeFilter} onChange={setTypeFilter} counts={counts} />
       </div>
 
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setTypeFilter("All")}
-          className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-            typeFilter === "All" ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
-          }`}
-        >
-          All
-        </button>
-        {INSURANCE_TYPES.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTypeFilter(t.id)}
-            className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-              typeFilter === t.id ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
-            }`}
-          >
-            {t.icon} {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="space-y-4">
-        {filtered.map((claim, i) => (
-          <div key={claim.id} className="bg-white rounded-xl shadow p-6 flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs text-gray-400 font-mono">{claim.id.slice(0, 8)}</span>
-                <InsuranceTypeBadge type={claim.insurance_type} />
-                {i === 0 && (
-                  <span className="text-xs bg-[#FDECEC] text-failure px-2 py-0.5 rounded-full font-medium">
-                    Oldest
-                  </span>
-                )}
-              </div>
-              <h3 className="font-semibold">{claim.claim_type}</h3>
-              <p className="text-xs text-gray-400 mt-1">
-                {claim.policyholder?.full_name || claim.policyholder_id.slice(0, 8)}
-              </p>
-              <p className="text-xs text-gray-400">
-                Submitted {new Date(claim.submitted_at).toLocaleDateString()}
-              </p>
-            </div>
-            <Link
-              href={`/dashboard/verifier/claims/${claim.id}`}
-              className="bg-chain-indigo text-white px-4 py-2 rounded-lg text-sm hover:bg-[#2F3FC0] shrink-0"
-            >
-              Review
-            </Link>
-          </div>
-        ))}
-        {filtered.length === 0 && (
-          <p className="text-center text-gray-400 py-12">No claims assigned for review.</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="bg-white rounded-xl shadow p-5">
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
+      {loading && !!wallet ? (
+        <div className="space-y-3" aria-busy>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="skeleton h-24" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="card">
+          <EmptyState icon={TaskListSquareLtrRegular} title="You're all caught up" body="No claims are assigned to you for review right now." />
+        </div>
+      ) : (
+        <ul className="stagger space-y-2">
+          {filtered.map((claim, i) => (
+            <li key={claim.id}>
+              <Link
+                href={`/dashboard/verifier/claims/${claim.id}`}
+                className="card card-interactive reveal group flex flex-wrap items-center gap-x-5 gap-y-3 p-4 sm:p-5"
+              >
+                <CategoryGlyph type={claim.insurance_type} variant="solid" size={44} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="t-body-strong text-fg">{claim.claim_type}</p>
+                    {i === 0 && typeFilter === "All" && (
+                      <span className="badge badge-critical !h-5">
+                        <ClockAlarmRegular aria-hidden /> Oldest
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-3 t-body text-fg-2">
+                    <span>{claim.policyholder?.full_name || claim.policyholder_id.slice(0, 8)}</span>
+                    <span className="font-mono text-[12.5px] text-fg-3">#{claim.id.slice(0, 8)}</span>
+                  </p>
+                </div>
+                <p className="flex items-center gap-1.5 t-body text-fg-2 tabular-nums">
+                  <CalendarClockRegular fontSize={16} aria-hidden />
+                  Submitted {ageLabel(claim.submitted_at)}
+                </p>
+                <span className="btn btn-accent nudge pointer-events-none">
+                  Review <ArrowRightRegular />
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

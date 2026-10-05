@@ -1,4 +1,6 @@
 "use client";
+import Dialog from "@/components/ui/Dialog";
+import Spinner from "@/components/ui/Spinner";
 
 export default function ConfirmModal({
   title,
@@ -18,29 +20,23 @@ export default function ConfirmModal({
   onCancel: () => void;
 }) {
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full border border-border">
-        <h3 className="text-lg font-bold mb-2 text-ink">{title}</h3>
-        <p className="text-sm text-gray-600 mb-6">{message}</p>
-        <div className="flex gap-3">
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className={`flex-1 py-2 rounded-lg font-medium text-white disabled:opacity-50 ${
-              danger ? "bg-failure hover:bg-[#C93338]" : "bg-chain-indigo hover:bg-[#2F3FC0]"
-            }`}
-          >
-            {loading ? "Processing..." : confirmLabel}
+    <Dialog
+      title={title}
+      onClose={onCancel}
+      dismissible={!loading}
+      footer={
+        <>
+          <button type="button" onClick={onConfirm} disabled={loading} className={`btn ${danger ? "btn-danger" : "btn-accent"}`}>
+            {loading && <Spinner />}
+            {loading ? "Waiting for wallet…" : confirmLabel}
           </button>
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="px-4 py-2 border border-border rounded-lg hover:bg-cloud"
-          >
+          <button type="button" onClick={onCancel} disabled={loading} className="btn">
             Cancel
           </button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <p className="text-fg-2">{message}</p>
+    </Dialog>
   );
 }

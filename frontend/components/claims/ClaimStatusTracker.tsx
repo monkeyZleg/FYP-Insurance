@@ -1,13 +1,20 @@
 "use client";
+import { CheckmarkRegular, DismissRegular } from "@fluentui/react-icons";
 
 type Step = {
   label: string;
   description: string;
   done: boolean;
   active: boolean;
+  failed?: boolean;
 };
 
+/**
+ * Claim progress as a chain of links: each completed link fills, the current
+ * one breathes, a rejection ends the chain in the critical colour.
+ */
 export default function ClaimStatusTracker({ status }: { status: string }) {
+  const rejected = status === "Rejected";
   const steps: Step[] = [
     {
       label: "Submitted",
@@ -16,7 +23,7 @@ export default function ClaimStatusTracker({ status }: { status: string }) {
       active: status === "Submitted",
     },
     {
-      label: "Under Review",
+      label: "Under review",
       description: "Verifier assigned and reviewing",
       done: ["UnderReview", "Approved", "Rejected", "Settled"].includes(status),
       active: status === "UnderReview",
@@ -24,49 +31,60 @@ export default function ClaimStatusTracker({ status }: { status: string }) {
     {
       label: "Decision",
       description:
-        status === "Approved" || status === "Settled"
-          ? "Claim approved"
-          : status === "Rejected"
-            ? "Claim rejected"
-            : "Awaiting decision",
+        status === "Approved" || status === "Settled" ? "Claim approved" : rejected ? "Claim rejected" : "Awaiting decision",
       done: ["Approved", "Rejected", "Settled"].includes(status),
-      active: status === "Approved" || status === "Rejected",
+      active: status === "Approved" || rejected,
+      failed: rejected,
     },
     {
       label: "Settled",
-      description: status === "Settled" ? "Payout settled" : "Awaiting settlement",
+      description: status === "Settled" ? "Payout settled" : rejected ? "Not applicable" : "Awaiting settlement",
       done: status === "Settled",
       active: status === "Settled",
     },
   ];
+  const doneCount = steps.filter((s) => s.done).length;
 
   return (
-    <div className="flex items-center gap-0 flex-wrap">
-      {steps.map((step, i) => (
-        <div key={i} className="flex items-center">
-          <div className="flex flex-col items-center">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                step.done
-                  ? "bg-ledger-mint text-white"
-                  : step.active
-                    ? "bg-chain-indigo text-white"
-                    : "bg-gray-200 text-gray-500"
-              }`}
+    <ol className="relative grid grid-cols-1 gap-5 sm:grid-cols-4 sm:gap-2" aria-label="Claim progress">
+      {/* connector track (horizontal on sm+, vertical on mobile) */}
+      <span aria-hidden className="absolute hidden sm:block left-[12.5%] right-[12.5%] top-[15px] h-[2px] rounded-full bg-[var(--control-stroke-secondary)]" />
+      <span
+        aria-hidden
+        className="absolute hidden sm:block left-[12.5%] top-[15px] h-[2px] rounded-full transition-[width] duration-700 ease-[cubic-bezier(0.1,0.9,0.2,1)]"
+        style={{
+          width: `${(Math.max(0, doneCount - 1) / (steps.length - 1)) * 75}%`,
+          background: rejected ? "linear-gradient(90deg, var(--success), var(--critical))" : "var(--success)",
+        }}
+      />
+      <span aria-hidden className="absolute sm:hidden left-[15px] top-4 bottom-4 w-[2px] rounded-full bg-[var(--control-stroke-secondary)]" />
+
+      {steps.map((step, i) => {
+        const color = step.failed ? "var(--critical)" : step.done ? "var(--success)" : step.active ? "var(--accent-fill)" : undefined;
+        return (
+          <li
+            key={step.label}
+            aria-current={step.active ? "step" : undefined}
+            className="enter relative flex items-start gap-3 sm:flex-col sm:items-center sm:text-center"
+            style={{ animationDelay: `${i * 70}ms` }}
+          >
+            <span
+              className="relative z-[1] grid h-8 w-8 shrink-0 place-items-center rounded-full t-body-strong transition-colors duration-300"
+              style={{
+                background: color ?? "var(--solid-quarternary)",
+                color: color ? "var(--text-on-accent)" : "var(--text-secondary)",
+                boxShadow: color ? `0 0 0 4px color-mix(in srgb, ${color} 16%, transparent)` : "inset 0 0 0 1.5px var(--control-strong-stroke)",
+              }}
             >
-              {step.done ? "✓" : i + 1}
-            </div>
-            <span className="text-xs mt-1 text-center max-w-[80px] text-ink">
-              {step.label}
+              {step.failed ? <DismissRegular fontSize={16} /> : step.done ? <CheckmarkRegular fontSize={16} /> : i + 1}
             </span>
-          </div>
-          {i < steps.length - 1 && (
-            <div
-              className={`h-0.5 w-16 mx-2 ${step.done ? "bg-ledger-mint" : "bg-border"}`}
-            />
-          )}
-        </div>
-      ))}
-    </div>
+            <span className="pt-1 sm:pt-0">
+              <span className={`block t-body-strong ${step.done || step.active ? "text-fg" : "text-fg-2"}`}>{step.label}</span>
+              <span className="block t-caption text-fg-2 mt-0.5">{step.description}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }

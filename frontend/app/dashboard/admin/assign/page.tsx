@@ -4,6 +4,14 @@ import { apiFetch } from "@/lib/api";
 import { useRole } from "@/hooks/useRole";
 import { useClaimRegistry } from "@/hooks/useContract";
 import InsuranceTypeBadge from "@/components/insurance/InsuranceTypeBadge";
+import { ClipboardTaskListLtrRegular, MoneyHandRegular, PersonArrowRightRegular } from "@fluentui/react-icons";
+import PageHeader from "@/components/ui/PageHeader";
+import SelectorBar from "@/components/ui/SelectorBar";
+import Select from "@/components/ui/Select";
+import Dialog from "@/components/ui/Dialog";
+import InfoBar from "@/components/ui/InfoBar";
+import Spinner from "@/components/ui/Spinner";
+import EmptyState from "@/components/ui/EmptyState";
 import type { Claim, User } from "@/types";
 
 export default function AssignClaimsPage() {
@@ -19,20 +27,26 @@ export default function AssignClaimsPage() {
   const [bulkVerifier, setBulkVerifier] = useState("");
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
+  const [settling, setSettling] = useState<string | null>(null);
 
   useEffect(() => {
     if (!wallet) return;
     loadClaims();
-    apiFetch("/api/auth/users", {}, wallet).then((d) =>
-      setVerifiers((d.users || []).filter((u: User) => u.role === "verifier" && u.is_active !== false))
-    );
+    apiFetch("/api/auth/users", {}, wallet)
+      .then((d) => setVerifiers((d.users || []).filter((u: User) => u.role === "verifier" && u.is_active !== false)))
+      .catch(() => setVerifiers([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet]);
 
   async function loadClaims() {
-    const data = await apiFetch("/api/claims/all", {}, wallet);
-    setClaims((data.claims || []).filter((c: Claim) => c.status === "Submitted"));
-    setApprovedClaims((data.claims || []).filter((c: Claim) => c.status === "Approved"));
+    try {
+      const data = await apiFetch("/api/claims/all", {}, wallet);
+      setClaims((data.claims || []).filter((c: Claim) => c.status === "Submitted"));
+      setApprovedClaims((data.claims || []).filter((c: Claim) => c.status === "Approved"));
+    } catch {
+      setClaims([]);
+      setApprovedClaims([]);
+    }
   }
 
   async function assignOne(claim: Claim, verifierId: string) {
@@ -85,6 +99,7 @@ export default function AssignClaimsPage() {
 
   async function handleSettle(claim: Claim) {
     setProcessing(true);
+    setSettling(claim.id);
     setError("");
     try {
       if (!claim.on_chain_claim_id) throw new Error("This claim has not been recorded on-chain yet.");
@@ -100,197 +115,234 @@ export default function AssignClaimsPage() {
       setError(err instanceof Error ? err.message : "Settlement failed");
     } finally {
       setProcessing(false);
+      setSettling(null);
     }
   }
 
+  const allSelected = selected.length === claims.length && claims.length > 0;
+  const someSelected = selected.length > 0 && !allSelected;
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <h1 className="text-2xl font-bold">{view === "assign" ? "Assign Pending Claims" : "Settle Approved Claims"}</h1>
-        <div className="flex gap-2 bg-cloud rounded-lg p-1">
-          <button
-            onClick={() => setView("assign")}
-            className={`text-sm font-medium px-4 py-1.5 rounded-md ${view === "assign" ? "bg-white shadow text-chain-indigo" : "text-gray-500"}`}
-          >
-            Assign
-          </button>
-          <button
-            onClick={() => setView("settle")}
-            className={`text-sm font-medium px-4 py-1.5 rounded-md ${view === "settle" ? "bg-white shadow text-chain-indigo" : "text-gray-500"}`}
-          >
-            Settle
-          </button>
-        </div>
+      <PageHeader
+        title="Assign & settle"
+        description={
+          view === "assign"
+            ? "Route new claims to a verifier. Each assignment is a transaction from your wallet."
+            : "Record the payout for approved claims on-chain."
+        }
+      />
+
+      <div className="enter enter-1 mb-4 flex flex-wrap items-center justify-between gap-3">
+        <SelectorBar
+          variant="segmented"
+          label="View"
+          value={view}
+          onChange={(v) => {
+            setView(v);
+            setError("");
+          }}
+          items={[
+            { value: "assign" as const, label: "Assign", icon: PersonArrowRightRegular, count: claims.length },
+            { value: "settle" as const, label: "Settle", icon: MoneyHandRegular, count: approvedClaims.length },
+          ]}
+        />
       </div>
 
-      {error && <p className="text-sm text-failure mb-4">{error}</p>}
+      {error && (
+        <InfoBar severity="error" className="mb-4" onDismiss={() => setError("")}>
+          {error}
+        </InfoBar>
+      )}
 
       {view === "assign" && (
-        <div>
-          {selected.length > 0 && (
-            <div className="bg-[#EEF0FC] border border-[#3D4FE0]/25 rounded-lg p-4 mb-4 flex items-center gap-3 flex-wrap">
-              <span className="text-sm font-medium">{selected.length} selected</span>
-              <select
-                value={bulkVerifier}
-                onChange={(e) => setBulkVerifier(e.target.value)}
-                className="border border-border rounded-lg px-3 py-1.5 text-sm"
-              >
-                <option value="">Select verifier...</option>
-                {verifiers.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.full_name || v.wallet_address}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={handleBulkAssign}
-                disabled={!bulkVerifier || processing}
-                className="bg-chain-indigo text-white px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-40"
-              >
-                Bulk Assign
-              </button>
-            </div>
-          )}
+        <div className="card enter enter-2 overflow-hidden">
+          {/* bulk command bar */}
+          <div
+            className={`flex flex-wrap items-center gap-3 border-b border-[var(--divider-stroke)] px-4 py-2.5 transition-colors duration-200 ${
+              selected.length > 0 ? "bg-[var(--accent-subtle)]" : ""
+            }`}
+          >
+            <span className="t-body text-fg tabular-nums">
+              {selected.length > 0 ? <strong>{selected.length} selected</strong> : <span className="text-fg-2">Select claims to assign in bulk</span>}
+            </span>
+            {selected.length > 0 && (
+              <div className="ml-auto flex flex-wrap items-center gap-2 fade-in">
+                <Select value={bulkVerifier} onChange={(e) => setBulkVerifier(e.target.value)} aria-label="Verifier for selected claims" wrapClassName="w-[200px]">
+                  <option value="">Select verifier…</option>
+                  {verifiers.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.full_name || v.wallet_address}
+                    </option>
+                  ))}
+                </Select>
+                <button onClick={handleBulkAssign} disabled={!bulkVerifier || processing} className="btn btn-accent">
+                  {processing && <Spinner />} Assign {selected.length}
+                </button>
+                <button onClick={() => setSelected([])} className="btn btn-subtle">
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
 
-          <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-cloud text-left text-gray-500">
-                  <th className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={selected.length === claims.length && claims.length > 0}
-                      onChange={(e) => setSelected(e.target.checked ? claims.map((c) => c.id) : [])}
-                    />
-                  </th>
-                  <th className="px-4 py-3">Claim ID</th>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Submitted</th>
-                  <th className="px-4 py-3">Policyholder</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {claims.map((c) => (
-                  <tr key={c.id} className="border-b hover:bg-cloud">
-                    <td className="px-4 py-3">
+          {claims.length === 0 ? (
+            <EmptyState compact icon={ClipboardTaskListLtrRegular} title="No pending claims to assign" body="New submissions will appear here." />
+          ) : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th className="w-12">
                       <input
                         type="checkbox"
-                        checked={selected.includes(c.id)}
-                        onChange={(e) =>
-                          setSelected((s) => (e.target.checked ? [...s, c.id] : s.filter((id) => id !== c.id)))
-                        }
+                        className="checkbox"
+                        aria-label="Select all"
+                        checked={allSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = someSelected;
+                        }}
+                        onChange={(e) => setSelected(e.target.checked ? claims.map((c) => c.id) : [])}
                       />
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs">{c.id.slice(0, 8)}</td>
-                    <td className="px-4 py-3">
-                      <InsuranceTypeBadge type={c.insurance_type} />
-                    </td>
-                    <td className="px-4 py-3 text-xs">{new Date(c.submitted_at).toLocaleDateString()}</td>
-                    <td className="px-4 py-3">{c.policyholder?.full_name || c.policyholder_id.slice(0, 8)}</td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => setModalClaim(c)} className="text-chain-indigo hover:underline">
-                        Assign
-                      </button>
-                    </td>
+                    </th>
+                    <th>Claim</th>
+                    <th>Type</th>
+                    <th className="hidden sm:table-cell">Submitted</th>
+                    <th className="hidden md:table-cell">Policyholder</th>
+                    <th className="w-px" aria-label="Actions" />
                   </tr>
-                ))}
-                {claims.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center text-gray-400 py-12">
-                      No pending claims to assign.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="stagger">
+                  {claims.map((c) => {
+                    const isSel = selected.includes(c.id);
+                    return (
+                      <tr key={c.id} className={isSel ? "row-selected" : ""}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            className="checkbox"
+                            aria-label={`Select claim ${c.id.slice(0, 8)}`}
+                            checked={isSel}
+                            onChange={(e) => setSelected((s) => (e.target.checked ? [...s, c.id] : s.filter((id) => id !== c.id)))}
+                          />
+                        </td>
+                        <td>
+                          <span className="block t-body-strong text-fg">{c.claim_type}</span>
+                          <span className="block font-mono text-[12px] text-fg-3">#{c.id.slice(0, 8)}</span>
+                        </td>
+                        <td>
+                          <InsuranceTypeBadge type={c.insurance_type} />
+                        </td>
+                        <td className="hidden whitespace-nowrap text-fg-2 tabular-nums sm:table-cell">{new Date(c.submitted_at).toLocaleDateString()}</td>
+                        <td className="hidden text-fg md:table-cell">{c.policyholder?.full_name || c.policyholder_id.slice(0, 8)}</td>
+                        <td className="text-right">
+                          <button onClick={() => setModalClaim(c)} className="btn btn-sm">
+                            <PersonArrowRightRegular /> Assign
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
       {view === "settle" && (
-        <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-cloud text-left text-gray-500">
-                <th className="px-4 py-3">Claim ID</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Decided</th>
-                <th className="px-4 py-3">Policyholder</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {approvedClaims.map((c) => (
-                <tr key={c.id} className="border-b hover:bg-cloud">
-                  <td className="px-4 py-3 font-mono text-xs">{c.id.slice(0, 8)}</td>
-                  <td className="px-4 py-3">
-                    <InsuranceTypeBadge type={c.insurance_type} />
-                  </td>
-                  <td className="px-4 py-3 text-xs">{c.decided_at ? new Date(c.decided_at).toLocaleDateString() : "—"}</td>
-                  <td className="px-4 py-3">{c.policyholder?.full_name || c.policyholder_id.slice(0, 8)}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleSettle(c)}
-                      disabled={processing}
-                      className="text-chain-indigo hover:underline disabled:opacity-40"
-                    >
-                      Settle
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {approvedClaims.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="text-center text-gray-400 py-12">
-                    No approved claims awaiting settlement.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="card enter enter-2 overflow-hidden">
+          {approvedClaims.length === 0 ? (
+            <EmptyState icon={MoneyHandRegular} title="No approved claims awaiting settlement" body="Claims appear here once a verifier approves them." />
+          ) : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Claim</th>
+                    <th>Type</th>
+                    <th className="hidden sm:table-cell">Decided</th>
+                    <th className="hidden md:table-cell">Policyholder</th>
+                    <th className="w-px" aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody className="stagger">
+                  {approvedClaims.map((c) => (
+                    <tr key={c.id}>
+                      <td>
+                        <span className="block t-body-strong text-fg">{c.claim_type}</span>
+                        <span className="block font-mono text-[12px] text-fg-3">#{c.id.slice(0, 8)}</span>
+                      </td>
+                      <td>
+                        <InsuranceTypeBadge type={c.insurance_type} />
+                      </td>
+                      <td className="hidden whitespace-nowrap text-fg-2 tabular-nums sm:table-cell">
+                        {c.decided_at ? new Date(c.decided_at).toLocaleDateString() : "—"}
+                      </td>
+                      <td className="hidden text-fg md:table-cell">{c.policyholder?.full_name || c.policyholder_id.slice(0, 8)}</td>
+                      <td className="text-right">
+                        <button onClick={() => handleSettle(c)} disabled={processing} className="btn btn-sm btn-success">
+                          {settling === c.id ? <Spinner size={14} /> : <MoneyHandRegular />}
+                          {settling === c.id ? "Settling…" : "Settle"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
       {modalClaim && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-xl shadow-xl p-8 max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4">Assign to Verifier</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Claim: {modalClaim.claim_type} ({modalClaim.id.slice(0, 8)})
-            </p>
-            <select
-              value={selectedVerifier}
-              onChange={(e) => setSelectedVerifier(e.target.value)}
-              className="w-full border border-border rounded-lg px-3 py-2 mb-4"
-            >
-              <option value="">Select verifier...</option>
-              {verifiers.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.full_name || v.wallet_address}
-                </option>
-              ))}
-            </select>
-            <div className="flex gap-3">
-              <button
-                onClick={handleAssign}
-                disabled={!selectedVerifier || processing}
-                className="flex-1 bg-chain-indigo text-white py-2 rounded-lg font-medium hover:bg-[#2F3FC0] disabled:opacity-40"
-              >
-                {processing ? "Assigning..." : "Assign"}
+        <Dialog
+          title="Assign to a verifier"
+          onClose={() => {
+            setModalClaim(null);
+            setSelectedVerifier("");
+          }}
+          dismissible={!processing}
+          footer={
+            <>
+              <button onClick={handleAssign} disabled={!selectedVerifier || processing} className="btn btn-accent">
+                {processing && <Spinner />}
+                {processing ? "Assigning…" : "Assign"}
               </button>
               <button
                 onClick={() => {
                   setModalClaim(null);
                   setSelectedVerifier("");
                 }}
-                className="px-4 py-2 border rounded-lg hover:bg-cloud"
+                disabled={processing}
+                className="btn"
               >
                 Cancel
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="mb-4 text-fg-2">
+            {modalClaim.claim_type} <span className="font-mono text-[13px] text-fg-3">#{modalClaim.id.slice(0, 8)}</span>
+          </p>
+          <label className="field-label" htmlFor="assign-verifier">
+            Verifier
+          </label>
+          <Select id="assign-verifier" value={selectedVerifier} onChange={(e) => setSelectedVerifier(e.target.value)}>
+            <option value="">Select verifier…</option>
+            {verifiers.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.full_name || v.wallet_address}
+              </option>
+            ))}
+          </Select>
+          <p className="field-hint">You&apos;ll confirm the assignment in MetaMask.</p>
+          {error && (
+            <InfoBar severity="error" className="mt-4">
+              {error}
+            </InfoBar>
+          )}
+        </Dialog>
       )}
     </div>
   );

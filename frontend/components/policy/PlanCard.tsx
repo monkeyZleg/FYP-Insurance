@@ -1,41 +1,60 @@
 "use client";
+import { ArrowRightRegular, CheckmarkRegular, StarFilled } from "@fluentui/react-icons";
 import { POLICY_TYPE_CONFIG, PLAN_META } from "@/constants/policyPlans";
+import CategoryGlyph from "@/components/ui/CategoryGlyph";
 import type { PolicyPlan } from "@/types";
 
-export default function PlanCard({ plan, onSelect }: { plan: PolicyPlan; onSelect?: () => void }) {
+export default function PlanCard({ plan, onSelect, highlight = false }: { plan: PolicyPlan; onSelect?: () => void; highlight?: boolean }) {
   const cfg = POLICY_TYPE_CONFIG[plan.type];
   const meta = PLAN_META[plan.planId];
   return (
-    <div className={`rounded-xl border p-5 ${cfg.bg} border-border hover:border-chain-indigo transition-colors`}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-2xl">{cfg.icon}</span>
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full bg-white ${cfg.text}`}>{plan.tier}</span>
+    <article
+      className={`card reveal group relative flex h-full flex-col p-5 transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.1,0.9,0.2,1)] hover:-translate-y-0.5 hover:shadow-flyout ${
+        highlight ? "shadow-[inset_0_0_0_1px_var(--accent-fill)]" : ""
+      }`}
+    >
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <CategoryGlyph type={plan.type} variant="solid" size={44} />
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          {highlight && (
+            <span className="badge badge-accent">
+              <StarFilled aria-hidden /> Widest cover
+            </span>
+          )}
+          <span className="badge badge-outline">{plan.tier}</span>
+        </div>
       </div>
-      <h3 className="font-semibold text-lg text-ink font-display">{plan.name}</h3>
-      {meta && <p className="text-sm text-gray-600 mt-1 mb-3">{meta.coverageSummary}</p>}
-      <p className="text-xl font-bold text-ink mb-3 tabular-nums">
-        RM {plan.premiumRM.toLocaleString()}
-        <span className="text-xs font-normal text-gray-500"> / 12 months</span>
+      <p className="t-caption text-fg-2">
+        {cfg.label} insurance <span className="text-fg-3">· {cfg.labelZh}</span>
       </p>
+      <h3 className="t-subtitle text-fg mt-0.5">{plan.name}</h3>
+      {meta && <p className="t-body text-fg-2 mt-2 min-h-10">{meta.coverageSummary}</p>}
+
+      <p className="mt-5 flex items-baseline gap-1.5 tabular-nums">
+        <span className="t-body text-fg-2">RM</span>
+        <span className="font-display text-[34px] leading-none font-semibold tracking-tight text-fg">{plan.premiumRM.toLocaleString()}</span>
+        <span className="t-caption text-fg-2">/ 12 months</span>
+      </p>
+
       {meta && (
-        <div className="mb-4">
-          <p className="text-xs font-medium text-gray-500 mb-1">Required documents</p>
-          <ul className="text-xs text-gray-500 list-disc list-inside space-y-0.5">
+        <div className="mt-5 flex-1 border-t border-[var(--divider-stroke)] pt-4">
+          <p className="t-caption font-semibold text-fg-2 mb-2">Documents you&apos;ll need for a claim</p>
+          <ul className="space-y-1.5">
             {meta.documentChecklist.map((d) => (
-              <li key={d}>{d}</li>
+              <li key={d} className="flex items-center gap-2 t-body text-fg">
+                <CheckmarkRegular fontSize={14} className="text-[var(--success)] shrink-0" aria-hidden />
+                {d}
+              </li>
             ))}
           </ul>
         </div>
       )}
       {onSelect && (
-        <button
-          onClick={onSelect}
-          className="text-sm font-medium px-4 py-2 rounded-lg w-full text-white"
-          style={{ backgroundColor: cfg.color }}
-        >
-          Buy {plan.name}
+        <button type="button" onClick={onSelect} className={`btn nudge mt-6 w-full ${highlight ? "btn-accent" : ""}`}>
+          Choose {plan.tier}
+          <ArrowRightRegular />
         </button>
       )}
-    </div>
+    </article>
   );
 }

@@ -1,6 +1,6 @@
-"use client";
-import { useState } from "react";
+import { OpenRegular } from "@fluentui/react-icons";
 import { truncateHash } from "@/lib/hash";
+import CopyButton from "@/components/ui/CopyButton";
 
 export default function HashDisplay({
   hash,
@@ -13,42 +13,23 @@ export default function HashDisplay({
   etherscanTx?: boolean;
   full?: boolean;
 }) {
-  const [copied, setCopied] = useState(false);
-
   if (!hash) {
-    return <span className="text-xs text-gray-400 font-mono">N/A</span>;
-  }
-
-  function copy() {
-    navigator.clipboard.writeText(hash!).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+    return <span className="t-caption text-fg-3">Not recorded</span>;
   }
 
   return (
-    <div className="inline-flex items-center gap-2">
-      {label && <span className="text-xs text-gray-500">{label}</span>}
-      <code className="text-xs font-mono bg-cloud border border-border px-2 py-1 rounded break-all">
+    <span className={`inline-flex max-w-full items-center gap-1 ${full ? "flex-wrap" : ""}`}>
+      {label && <span className="mr-1 t-caption text-fg-2">{label}</span>}
+      <code className="hash-chip" title={hash}>
         {full ? hash : truncateHash(hash)}
       </code>
-      <button
-        onClick={copy}
-        title="Copy hash"
-        className="text-xs text-gray-400 hover:text-gray-700"
-      >
-        {copied ? "✓" : "⧉"}
-      </button>
+      <CopyButton value={hash} label="Copy hash" />
       {etherscanTx && (
-        <a
-          href={`https://sepolia.etherscan.io/tx/${hash}`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs text-chain-indigo hover:underline"
-        >
-          Etherscan ↗
+        <a href={`https://sepolia.etherscan.io/tx/${hash}`} target="_blank" rel="noreferrer" className="link ml-1 inline-flex items-center gap-1 t-caption">
+          Etherscan
+          <OpenRegular fontSize={12} aria-hidden />
         </a>
       )}
-    </div>
+    </span>
   );
 }

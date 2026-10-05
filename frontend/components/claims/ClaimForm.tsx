@@ -12,6 +12,19 @@ import InsuranceTypeCard from "@/components/insurance/InsuranceTypeCard";
 import DocumentUploader, { type UploadedFile } from "@/components/documents/DocumentUploader";
 import BlockchainNote from "@/components/blockchain/BlockchainNote";
 import HashDisplay from "@/components/blockchain/HashDisplay";
+import CategoryGlyph from "@/components/ui/CategoryGlyph";
+import InfoBar from "@/components/ui/InfoBar";
+import Select from "@/components/ui/Select";
+import Spinner from "@/components/ui/Spinner";
+import {
+  ArrowLeftRegular,
+  ArrowRightRegular,
+  CheckmarkRegular,
+  DocumentMultipleRegular,
+  SendRegular,
+} from "@fluentui/react-icons";
+
+const STEPS = ["Type", "Details", "Documents", "Review"];
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -112,228 +125,284 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
     }
   }
 
+  const filledCount = config ? config.fields.filter((f) => values[f.key] && values[f.key].trim() !== "").length : 0;
+
   return (
-    <div className="max-w-2xl">
-      <div className="flex items-center gap-2 mb-8 text-xs font-medium">
-        {["Type", "Details", "Documents", "Review"].map((label, i) => (
-          <div key={label} className="flex items-center gap-2">
-            <span
-              className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                step === i + 1
-                  ? "bg-chain-indigo text-white"
-                  : step > i + 1
-                    ? "bg-ledger-mint text-white"
-                    : "bg-gray-200 text-gray-500"
-              }`}
-            >
-              {step > i + 1 ? "✓" : i + 1}
-            </span>
-            <span className={step === i + 1 ? "text-ink" : "text-gray-400"}>{label}</span>
-            {i < 3 && <span className="w-6 h-px bg-border mx-1" />}
-          </div>
-        ))}
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="min-w-0">
+        {/* step indicator */}
+        <ol className="enter mb-6 grid grid-cols-4 gap-2" aria-label="Steps">
+          {STEPS.map((label, i) => {
+            const n = (i + 1) as Step;
+            const done = step > n;
+            const current = step === n;
+            return (
+              <li key={label} aria-current={current ? "step" : undefined}>
+                <div className="h-1 overflow-hidden rounded-full bg-[var(--control-stroke-secondary)]">
+                  <div
+                    className="h-full rounded-full transition-[width] duration-500 ease-[cubic-bezier(0.1,0.9,0.2,1)]"
+                    style={{ width: done || current ? "100%" : "0%", background: done ? "var(--success)" : "var(--accent-fill)" }}
+                  />
+                </div>
+                <p className={`mt-2 flex items-center gap-1.5 t-caption ${current ? "text-fg font-semibold" : done ? "text-fg-2" : "text-fg-3"}`}>
+                  {done ? <CheckmarkRegular fontSize={12} className="text-[var(--success)]" aria-hidden /> : <span className="tabular-nums">{n}.</span>}
+                  {label}
+                </p>
+              </li>
+            );
+          })}
+        </ol>
+
+        <div key={step} className="card enter p-5 sm:p-7">
+          {step === 1 && (
+            <div>
+              <h2 className="t-subtitle text-fg">What kind of claim is this?</h2>
+              <p className="mt-1 mb-5 t-body text-fg-2">Choose the cover your claim falls under.</p>
+              <div role="radiogroup" aria-label="Insurance type" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {INSURANCE_TYPES.map((t) => (
+                  <InsuranceTypeCard
+                    key={t.id}
+                    config={t}
+                    selected={insuranceType === t.id}
+                    onSelect={() => {
+                      setInsuranceType(t.id);
+                      setSelectedPolicyId("");
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="mt-7 flex justify-end border-t border-[var(--divider-stroke)] pt-5">
+                <button disabled={!insuranceType} onClick={() => setStep(2)} className="btn btn-accent nudge">
+                  Continue <ArrowRightRegular />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && config && (
+            <div>
+              <div className="mb-6 flex items-center gap-3">
+                <CategoryGlyph type={config.id} variant="solid" size={40} />
+                <div>
+                  <h2 className="t-subtitle text-fg">{config.label} claim details</h2>
+                  <p className="t-body text-fg-2">Fields marked * are required.</p>
+                </div>
+              </div>
+              {linksToPolicyModule && (
+                <div className="mb-5">
+                  <label className="field-label" htmlFor="policy-select">
+                    Policy {policyNumberField?.required && <span className="text-[var(--critical)]">*</span>}
+                  </label>
+                  {myEligiblePolicies.length === 0 ? (
+                    <InfoBar
+                      severity="warning"
+                      title="No eligible policy."
+                      action={
+                        <Link href="/dashboard/policyholder/policies/plans" className="btn btn-sm">
+                          Buy a policy
+                        </Link>
+                      }
+                    >
+                      No active or grace-period {config.label.toLowerCase()} policy found for your account. Buy a policy before filing
+                      this claim.
+                    </InfoBar>
+                  ) : (
+                    <Select
+                      id="policy-select"
+                      value={selectedPolicyId}
+                      onChange={(e) => {
+                        const policy = myEligiblePolicies.find((p) => p.id === e.target.value);
+                        if (policy) selectPolicy(policy);
+                      }}
+                    >
+                      <option value="">Select a policy…</option>
+                      {myEligiblePolicies.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.policy_number} — {p.plan_name} ({p.status})
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </div>
+              )}
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                {config.fields.map((f) => (
+                  <div
+                    key={f.key}
+                    className={`${f.role === "policyNumber" && linksToPolicyModule ? "hidden" : ""} ${f.type === "textarea" ? "sm:col-span-2" : ""}`}
+                  >
+                    <label className="field-label" htmlFor={`f-${f.key}`}>
+                      {f.label} {f.required && <span className="text-[var(--critical)]">*</span>}
+                    </label>
+                    {f.type === "textarea" ? (
+                      <textarea
+                        id={`f-${f.key}`}
+                        value={values[f.key] || ""}
+                        onChange={(e) => setField(f.key, e.target.value)}
+                        className="textbox"
+                        placeholder={f.placeholder}
+                        required={f.required}
+                      />
+                    ) : f.type === "select" ? (
+                      <Select id={`f-${f.key}`} value={values[f.key] || ""} onChange={(e) => setField(f.key, e.target.value)} required={f.required}>
+                        <option value="">Select…</option>
+                        {f.options?.map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                      </Select>
+                    ) : (
+                      <input
+                        id={`f-${f.key}`}
+                        type={f.type}
+                        value={values[f.key] || ""}
+                        onChange={(e) => setField(f.key, e.target.value)}
+                        className={`textbox ${f.type === "number" ? "tabular-nums" : ""}`}
+                        placeholder={f.placeholder}
+                        required={f.required}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-7 flex justify-between gap-3 border-t border-[var(--divider-stroke)] pt-5">
+                <button onClick={() => setStep(1)} className="btn">
+                  <ArrowLeftRegular /> Back
+                </button>
+                <button disabled={!fieldsComplete()} onClick={() => setStep(3)} className="btn btn-accent nudge">
+                  Continue <ArrowRightRegular />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && config && (
+            <div>
+              <h2 className="t-subtitle text-fg">Upload documents</h2>
+              <p className="mt-1 mb-5 t-body text-fg-2">
+                Suggested: <span className="text-fg">{config.documentHint}</span>
+              </p>
+              <DocumentUploader files={files} onChange={setFiles} combinedHash={combinedHash} onCombinedHashChange={setCombinedHash} />
+              <div className="mt-7 flex justify-between gap-3 border-t border-[var(--divider-stroke)] pt-5">
+                <button onClick={() => setStep(2)} className="btn">
+                  <ArrowLeftRegular /> Back
+                </button>
+                <button onClick={() => setStep(4)} className="btn btn-accent nudge">
+                  Continue <ArrowRightRegular />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && config && (
+            <div>
+              <h2 className="t-subtitle text-fg">Review &amp; submit</h2>
+              <p className="mt-1 mb-5 t-body text-fg-2">Check everything once more — submitted details are fingerprinted and can&apos;t be edited.</p>
+              <dl className="divide-y divide-[var(--divider-stroke)] rounded-[var(--radius-overlay)] border border-[var(--card-stroke)] bg-[var(--card-fill-secondary)]">
+                <ReviewRow label="Insurance type">
+                  <span className="inline-flex items-center gap-2">
+                    <CategoryGlyph type={config.id} size={20} /> {config.label}
+                  </span>
+                </ReviewRow>
+                {config.fields.map((f) => (
+                  <ReviewRow key={f.key} label={f.label}>
+                    {values[f.key] || <span className="text-fg-3">—</span>}
+                  </ReviewRow>
+                ))}
+                <ReviewRow label="Documents">
+                  {files.length} file{files.length === 1 ? "" : "s"}
+                </ReviewRow>
+                {combinedHash && (
+                  <div className="px-4 py-3">
+                    <dt className="t-caption text-fg-2 mb-1.5">Combined document hash</dt>
+                    <dd>
+                      <HashDisplay hash={combinedHash} full />
+                    </dd>
+                  </div>
+                )}
+              </dl>
+
+              <div className="mt-5">
+                <BlockchainNote text="Your claim will be recorded off-chain and, for policy-linked claim types, verified for eligibility and recorded on the blockchain by the platform's relayer wallet on your behalf." />
+              </div>
+
+              {status && !status.startsWith("Error") && (
+                <InfoBar severity="success" className="mt-4" title="Submitted.">
+                  {status}
+                </InfoBar>
+              )}
+              {rejectReason && (
+                <InfoBar severity="error" className="mt-4" title="Not eligible.">
+                  This claim was not eligible: {rejectReason.message}
+                </InfoBar>
+              )}
+              {txHash && (
+                <div className="mt-3">
+                  <HashDisplay hash={txHash} label="Transaction" etherscanTx full />
+                </div>
+              )}
+
+              <div className="mt-7 flex justify-between gap-3 border-t border-[var(--divider-stroke)] pt-5">
+                <button onClick={() => setStep(3)} disabled={loading} className="btn">
+                  <ArrowLeftRegular /> Back
+                </button>
+                <button onClick={handleSubmit} disabled={loading || !token} className="btn btn-accent btn-lg">
+                  {loading ? <Spinner /> : <SendRegular />}
+                  {loading ? "Submitting…" : "Submit claim"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {step === 1 && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Select Insurance Type</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {INSURANCE_TYPES.map((t) => (
-              <InsuranceTypeCard
-                key={t.id}
-                config={t}
-                selected={insuranceType === t.id}
-                onSelect={() => {
-                  setInsuranceType(t.id);
-                  setSelectedPolicyId("");
-                }}
-              />
-            ))}
-          </div>
-          <button
-            disabled={!insuranceType}
-            onClick={() => setStep(2)}
-            className="mt-6 bg-amber-spark text-ink px-6 py-2 rounded-lg font-medium disabled:opacity-40 hover:bg-[#E89D14] transition-colors"
-          >
-            Continue
-          </button>
-        </div>
-      )}
-
-      {step === 2 && config && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4">
-            {config.icon} {config.label} Claim Details
-          </h2>
-          {linksToPolicyModule && (
-            <div className="mb-4">
-              <label className="block text-sm mb-1 font-medium">
-                Policy {policyNumberField?.required && <span className="text-failure">*</span>}
-              </label>
-              {myEligiblePolicies.length === 0 ? (
-                <p className="text-sm bg-[#FFF6E5] border border-[#FFB020]/40 text-[#B8760A] rounded-lg px-3 py-2">
-                  No active or grace-period {config.label.toLowerCase()} policy found for your account.{" "}
-                  <Link href="/dashboard/policyholder/policies/plans" className="underline font-medium">
-                    Buy a policy
-                  </Link>{" "}
-                  before filing this claim.
-                </p>
-              ) : (
-                <select
-                  value={selectedPolicyId}
-                  onChange={(e) => {
-                    const policy = myEligiblePolicies.find((p) => p.id === e.target.value);
-                    if (policy) selectPolicy(policy);
-                  }}
-                  className="w-full border border-border rounded-lg px-3 py-2"
-                >
-                  <option value="">Select a policy...</option>
-                  {myEligiblePolicies.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.policy_number} — {p.plan_name} ({p.status})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            {config.fields.map((f) => (
-              <div key={f.key} className={f.role === "policyNumber" && linksToPolicyModule ? "hidden" : ""}>
-                <label className="block text-sm mb-1 font-medium">
-                  {f.label} {f.required && <span className="text-failure">*</span>}
-                </label>
-                {f.type === "textarea" ? (
-                  <textarea
-                    value={values[f.key] || ""}
-                    onChange={(e) => setField(f.key, e.target.value)}
-                    className="w-full border border-border rounded-lg px-3 py-2 h-24"
-                    placeholder={f.placeholder}
-                    required={f.required}
-                  />
-                ) : f.type === "select" ? (
-                  <select
-                    value={values[f.key] || ""}
-                    onChange={(e) => setField(f.key, e.target.value)}
-                    className="w-full border border-border rounded-lg px-3 py-2"
-                    required={f.required}
-                  >
-                    <option value="">Select...</option>
-                    {f.options?.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type={f.type}
-                    value={values[f.key] || ""}
-                    onChange={(e) => setField(f.key, e.target.value)}
-                    className="w-full border border-border rounded-lg px-3 py-2"
-                    placeholder={f.placeholder}
-                    required={f.required}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-3 mt-6">
-            <button onClick={() => setStep(1)} className="px-4 py-2 border border-border rounded-lg hover:bg-cloud transition-colors">
-              Back
-            </button>
-            <button
-              disabled={!fieldsComplete()}
-              onClick={() => setStep(3)}
-              className="bg-amber-spark text-ink px-6 py-2 rounded-lg font-medium disabled:opacity-40 hover:bg-[#E89D14] transition-colors"
-            >
-              Continue
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && config && (
-        <div>
-          <h2 className="text-xl font-semibold mb-2">Upload Documents</h2>
-          <p className="text-sm text-gray-500 mb-4">{config.documentHint}</p>
-          <DocumentUploader
-            files={files}
-            onChange={setFiles}
-            combinedHash={combinedHash}
-            onCombinedHashChange={setCombinedHash}
-          />
-          <div className="flex gap-3 mt-6">
-            <button onClick={() => setStep(2)} className="px-4 py-2 border border-border rounded-lg hover:bg-cloud transition-colors">
-              Back
-            </button>
-            <button
-              onClick={() => setStep(4)}
-              className="bg-amber-spark text-ink px-6 py-2 rounded-lg font-medium hover:bg-[#E89D14] transition-colors"
-            >
-              Continue
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === 4 && config && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Review &amp; Submit</h2>
-          <div className="bg-white border border-border rounded-xl p-5 space-y-3 mb-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Insurance Type</span>
-              <span className="font-medium">
-                {config.icon} {config.label}
-              </span>
-            </div>
-            {config.fields.map((f) => (
-              <div key={f.key} className="flex justify-between text-sm gap-4">
-                <span className="text-gray-500">{f.label}</span>
-                <span className="font-medium text-right break-words">{values[f.key] || "—"}</span>
-              </div>
-            ))}
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Documents</span>
-              <span className="font-medium">{files.length} file(s)</span>
-            </div>
-            {combinedHash && (
+      {/* live summary */}
+      <aside className="enter enter-3 hidden lg:block lg:sticky lg:top-20">
+        <div className="card p-5">
+          <p className="t-caption font-semibold text-fg-2">Your claim so far</p>
+          {config ? (
+            <div className="mt-4 flex items-center gap-3">
+              <CategoryGlyph type={config.id} variant="solid" size={36} />
               <div>
-                <span className="text-gray-500 text-sm">Document Hash</span>
-                <HashDisplay hash={combinedHash} full />
+                <p className="t-body-strong text-fg">{config.label}</p>
+                <p className="t-caption text-fg-2">{config.labelZh}</p>
               </div>
-            )}
-          </div>
-
-          <BlockchainNote text="Your claim will be recorded off-chain and, for policy-linked claim types, verified for eligibility and recorded on the blockchain by the platform's relayer wallet on your behalf." />
-
-          <div className="flex gap-3 mt-6">
-            <button onClick={() => setStep(3)} disabled={loading} className="px-4 py-2 border border-border rounded-lg hover:bg-cloud transition-colors">
-              Back
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={loading || !token}
-              className="flex-1 bg-amber-spark text-ink py-2 rounded-lg font-medium hover:bg-[#E89D14] disabled:opacity-50 transition-colors"
-            >
-              {loading ? "Submitting..." : "Submit Claim"}
-            </button>
-          </div>
-
-          {status && (
-            <p className={`text-sm mt-4 ${status.startsWith("Error") ? "text-failure" : "text-[#0F8F70]"}`}>
-              {status}
-            </p>
+            </div>
+          ) : (
+            <p className="mt-3 t-body text-fg-3">No cover type chosen yet.</p>
           )}
-          {rejectReason && (
-            <p className="text-sm mt-2 bg-[#FDECEC] border border-failure/30 text-failure rounded-lg px-3 py-2">
-              This claim was not eligible: {rejectReason.message}
-            </p>
+          <dl className="mt-5 space-y-3 t-body">
+            <div className="flex justify-between gap-3">
+              <dt className="text-fg-2">Details</dt>
+              <dd className="text-fg tabular-nums">{config ? `${filledCount} / ${config.fields.length}` : "—"}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-fg-2">Documents</dt>
+              <dd className="flex items-center gap-1.5 text-fg tabular-nums">
+                <DocumentMultipleRegular fontSize={14} className="text-fg-3" aria-hidden />
+                {files.length}
+              </dd>
+            </div>
+          </dl>
+          {combinedHash && (
+            <div className="mt-5 border-t border-[var(--divider-stroke)] pt-4">
+              <p className="t-caption text-fg-2">Fingerprint</p>
+              <p className="mt-1 break-all font-mono text-[11.5px] leading-4 text-fg">{combinedHash}</p>
+            </div>
           )}
-          {txHash && <HashDisplay hash={txHash} label="Transaction" etherscanTx full />}
         </div>
-      )}
+      </aside>
+    </div>
+  );
+}
+
+function ReviewRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap justify-between gap-x-6 gap-y-1 px-4 py-3 t-body">
+      <dt className="text-fg-2">{label}</dt>
+      <dd className="text-fg text-right break-words max-w-[60%]">{children}</dd>
     </div>
   );
 }

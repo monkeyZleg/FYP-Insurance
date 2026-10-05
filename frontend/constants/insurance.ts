@@ -16,11 +16,6 @@ export interface InsuranceConfig {
   id: InsuranceType;
   label: string;
   labelZh: string;
-  color: string;
-  bg: string;
-  border: string;
-  text: string;
-  icon: string;
   description: string;
   documentHint: string;
   fields: ClaimFieldConfig[];
@@ -31,11 +26,6 @@ export const INSURANCE_TYPES: InsuranceConfig[] = [
     id: "health",
     label: "Health",
     labelZh: "健康保险",
-    color: "#3D4FE0",
-    bg: "bg-[#EEF0FC]",
-    border: "border-[#3D4FE0]",
-    text: "text-[#3D4FE0]",
-    icon: "❤️",
     description: "Hospitalisation, outpatient, medical bills, surgery",
     documentHint: "Medical report, bills, receipts, discharge summary",
     fields: [
@@ -51,11 +41,6 @@ export const INSURANCE_TYPES: InsuranceConfig[] = [
     id: "life",
     label: "Life",
     labelZh: "人寿保险",
-    color: "#3D4FE0",
-    bg: "bg-[#EEF0FC]",
-    border: "border-[#3D4FE0]",
-    text: "text-[#3D4FE0]",
-    icon: "🛡️",
     description: "Death benefit, critical illness, total permanent disability",
     documentHint: "Death certificate, medical diagnosis, legal documents",
     fields: [
@@ -70,11 +55,6 @@ export const INSURANCE_TYPES: InsuranceConfig[] = [
     id: "transportation",
     label: "Transportation",
     labelZh: "交通保险",
-    color: "#3D4FE0",
-    bg: "bg-[#EEF0FC]",
-    border: "border-[#3D4FE0]",
-    text: "text-[#3D4FE0]",
-    icon: "🚗",
     description: "Motor accident, vehicle theft, third-party damage, windscreen",
     documentHint: "Police report, photos, repair estimate",
     fields: [
@@ -92,11 +72,6 @@ export const INSURANCE_TYPES: InsuranceConfig[] = [
     id: "flight",
     label: "Flight",
     labelZh: "航空保险",
-    color: "#3D4FE0",
-    bg: "bg-[#EEF0FC]",
-    border: "border-[#3D4FE0]",
-    text: "text-[#3D4FE0]",
-    icon: "✈️",
     description: "Flight delay, cancellation, missed connection, baggage loss",
     documentHint: "Boarding pass, airline notice, baggage receipt",
     fields: [
@@ -116,17 +91,15 @@ export function getInsuranceConfig(type: string | null | undefined): InsuranceCo
   return INSURANCE_TYPES.find((t) => t.id === type);
 }
 
-// Status color mapping per design spec Part 1.2:
-// Active/Approved/Settled -> ledger-mint, Pending/Grace/UnderReview/Submitted -> amber-spark,
-// Lapsed/Rejected/Expired -> failure red. Dot color (`dot`) drives the row-based status
-// displays; bg/text remain for pill-shaped badges.
-export const STATUS_CONFIG: Record<
-  string,
-  { label: string; labelZh: string; bg: string; text: string; dot: string }
-> = {
-  Submitted: { label: "Submitted", labelZh: "已提交", bg: "bg-[#FFF6E5]", text: "text-[#B8760A]", dot: "#FFB020" },
-  UnderReview: { label: "Under Review", labelZh: "审核中", bg: "bg-[#FFF6E5]", text: "text-[#B8760A]", dot: "#FFB020" },
-  Approved: { label: "Approved", labelZh: "已批准", bg: "bg-[#E6F7F2]", text: "text-[#0F8F70]", dot: "#17B890" },
-  Rejected: { label: "Rejected", labelZh: "已拒绝", bg: "bg-[#FDECEC]", text: "text-[#C93338]", dot: "#E5484D" },
-  Settled: { label: "Settled", labelZh: "已结算", bg: "bg-[#E6F7F2]", text: "text-[#0F8F70]", dot: "#17B890" },
+export type Tone = "success" | "caution" | "critical" | "accent" | "neutral";
+
+// Status tones follow the WinUI system colors: success (green) for a positive
+// outcome, caution (amber) for work in progress, critical (red) for a negative
+// outcome, accent for "received, nothing has happened yet".
+export const STATUS_CONFIG: Record<string, { label: string; labelZh: string; tone: Tone }> = {
+  Submitted: { label: "Submitted", labelZh: "已提交", tone: "accent" },
+  UnderReview: { label: "Under Review", labelZh: "审核中", tone: "caution" },
+  Approved: { label: "Approved", labelZh: "已批准", tone: "success" },
+  Rejected: { label: "Rejected", labelZh: "已拒绝", tone: "critical" },
+  Settled: { label: "Settled", labelZh: "已结算", tone: "success" },
 };

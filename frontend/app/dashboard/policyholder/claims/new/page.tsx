@@ -1,11 +1,16 @@
 "use client";
 import { Suspense } from "react";
 import ClaimForm from "@/components/claims/ClaimForm";
+import PageHeader from "@/components/ui/PageHeader";
 
 export default function NewClaimPage() {
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">New Claim</h1>
+      <PageHeader
+        title="New claim"
+        description="Four short steps. Your documents are fingerprinted in your browser before anything is uploaded."
+        breadcrumb={[{ label: "My claims", href: "/dashboard/policyholder/claims" }, { label: "New claim" }]}
+      />
       <Suspense fallback={null}>
         <ClaimForm />
       </Suspense>

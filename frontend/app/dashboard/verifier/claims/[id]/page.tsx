@@ -6,7 +6,19 @@ import { apiFetch } from "@/lib/api";
 import { useRole } from "@/hooks/useRole";
 import { useClaimRegistry } from "@/hooks/useContract";
 import { getInsuranceConfig } from "@/constants/insurance";
-import InsuranceTypeBadge from "@/components/insurance/InsuranceTypeBadge";
+import CategoryGlyph from "@/components/ui/CategoryGlyph";
+import PageHeader from "@/components/ui/PageHeader";
+import InfoBar from "@/components/ui/InfoBar";
+import Persona from "@/components/ui/Persona";
+import StatusPill from "@/components/shared/StatusPill";
+import {
+  CheckmarkRegular,
+  DismissRegular,
+  DocumentRegular,
+  ShieldCheckmarkFilled,
+  ShieldErrorFilled,
+  WalletRegular,
+} from "@fluentui/react-icons";
 import HashDisplay from "@/components/blockchain/HashDisplay";
 import ConfirmModal from "@/components/shared/ConfirmModal";
 import type { Claim, Document as ClaimDocument } from "@/types";
@@ -80,121 +92,179 @@ export default function VerifierReviewPage() {
     }
   }
 
-  if (!claim) return <p className="text-gray-400">Loading claim...</p>;
+  if (!claim)
+    return (
+      <div aria-busy>
+        <div className="skeleton mb-8 h-9 w-72" />
+        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+          <div className="skeleton h-96" />
+          <div className="skeleton h-80" />
+        </div>
+      </div>
+    );
+
+  const remarkLen = remark.trim().length;
+  const remarkOk = remarkLen >= 20;
 
   return (
-    <div className="max-w-3xl">
-      <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold">Review Claim</h1>
-        <InsuranceTypeBadge type={claim.insurance_type} />
-      </div>
+    <div>
+      <PageHeader
+        breadcrumb={[{ label: "Claims queue", href: "/dashboard/verifier" }, { label: `#${claim.id.slice(0, 8)}` }]}
+        title={
+          <span className="flex flex-wrap items-center gap-3">
+            <CategoryGlyph type={claim.insurance_type} variant="solid" size={36} />
+            Review claim
+          </span>
+        }
+        actions={<StatusPill status={claim.status} />}
+      />
 
-      <div className="bg-white rounded-xl shadow p-6 mb-6 space-y-2">
-        <h2 className="font-semibold mb-2">Policyholder</h2>
-        <p className="text-sm">
-          Name: <span className="font-medium">{claim.policyholder?.full_name || claim.policyholder_id}</span>
-        </p>
-        {claim.policyholder?.email && <p className="text-sm text-gray-500">{claim.policyholder.email}</p>}
-        <p className="text-sm">Policy Number: {(claim.details?.policyNumber as string) || "—"}</p>
-      </div>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-w-0 space-y-6">
+          <section className="card enter enter-1 flex flex-wrap items-center gap-4 p-5">
+            <Persona name={claim.policyholder?.full_name || "Policyholder"} size={44} />
+            <div className="min-w-0 flex-1">
+              <p className="t-body-strong text-fg">{claim.policyholder?.full_name || claim.policyholder_id}</p>
+              {claim.policyholder?.email && <p className="t-body text-fg-2">{claim.policyholder.email}</p>}
+            </div>
+            <div className="text-right">
+              <p className="t-caption text-fg-2">Policy number</p>
+              <p className="font-mono text-[13px] text-fg">{(claim.details?.policyNumber as string) || "—"}</p>
+            </div>
+          </section>
 
-      <div className="bg-white rounded-xl shadow p-6 mb-6 space-y-2">
-        <h2 className="font-semibold mb-2">Claim Details</h2>
-        <p className="text-sm">
-          <span className="text-gray-500">Claim Type:</span> {claim.claim_type}
-        </p>
-        <p className="text-sm">
-          <span className="text-gray-500">Incident Date:</span> {claim.incident_date}
-        </p>
-        <p className="text-sm">
-          <span className="text-gray-500">Description:</span> {claim.description}
-        </p>
-        {config &&
-          config.fields
-            .filter((f) => !["policyNumber", "date", "description", "claimType"].includes(f.role || ""))
-            .map((f) => (
-              <p key={f.key} className="text-sm">
-                <span className="text-gray-500">{f.label}:</span> {(claim.details?.[f.key] as string) || "—"}
+          <section className="card enter enter-2 overflow-hidden">
+            <h2 className="border-b border-[var(--divider-stroke)] px-5 py-3.5 t-body-strong text-fg">Claim details</h2>
+            <dl className="divide-y divide-[var(--divider-stroke)]">
+              <Row label="Claim type" value={claim.claim_type} />
+              <Row label="Incident date" value={claim.incident_date} />
+              <Row label="Description" value={claim.description} />
+              {config &&
+                config.fields
+                  .filter((f) => !["policyNumber", "date", "description", "claimType"].includes(f.role || ""))
+                  .map((f) => <Row key={f.key} label={f.label} value={(claim.details?.[f.key] as string) || "—"} />)}
+            </dl>
+          </section>
+
+          <section className="card enter enter-3 overflow-hidden">
+            <h2 className="border-b border-[var(--divider-stroke)] px-5 py-3.5 t-body-strong text-fg">Document review</h2>
+            {documents.length === 0 ? (
+              <p className="px-5 py-6 t-body text-fg-3">No documents uploaded.</p>
+            ) : (
+              <ul className="divide-y divide-[var(--divider-stroke)]">
+                {documents.map((d) => (
+                  <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+                    <span className="flex min-w-0 items-center gap-2 t-body-strong text-fg">
+                      <DocumentRegular fontSize={18} className="shrink-0 text-fg-2" aria-hidden />
+                      <span className="break-all">{d.file_name}</span>
+                    </span>
+                    <HashDisplay hash={d.file_hash} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            {hashCheck !== null && (
+              <div className="m-4 mt-0 flex items-center gap-3 rounded-[var(--radius-control)] p-3" style={{ background: hashCheck ? "var(--success-bg)" : "var(--critical-bg)" }}>
+                {hashCheck ? (
+                  <ShieldCheckmarkFilled fontSize={22} className="text-[var(--success)]" aria-hidden />
+                ) : (
+                  <ShieldErrorFilled fontSize={22} className="text-[var(--critical)]" aria-hidden />
+                )}
+                <p className="t-body-strong text-fg">
+                  {hashCheck ? "Verified — details hash recorded on-chain" : "Hash mismatch — flag for investigation"}
+                </p>
+              </div>
+            )}
+          </section>
+
+          {history.length > 0 && (
+            <section className="card enter enter-4 overflow-hidden">
+              <h2 className="border-b border-[var(--divider-stroke)] px-5 py-3.5 t-body-strong text-fg">Your verification history</h2>
+              <ul className="divide-y divide-[var(--divider-stroke)]">
+                {history.slice(0, 5).map((h) => (
+                  <li key={h.id} className="flex items-center justify-between gap-3 px-5 py-2.5 t-body">
+                    <Link href={`/dashboard/verifier/claims/${h.id}`} className="link">
+                      {h.claim_type}
+                    </Link>
+                    <StatusPill status={h.status} dot />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+
+        {/* decision panel */}
+        <aside className="enter enter-2 lg:sticky lg:top-20">
+          <section className="card overflow-hidden">
+            <div className="border-b border-[var(--divider-stroke)] px-5 py-4">
+              <h2 className="t-subtitle text-fg">Decision</h2>
+              <p className="mt-1 flex items-start gap-2 t-caption text-fg-2">
+                <WalletRegular fontSize={14} className="mt-px shrink-0" aria-hidden />
+                Approving or rejecting will first ask you to confirm a transaction in MetaMask, then record the decision.
               </p>
-            ))}
+            </div>
+            <div className="p-5">
+              <label htmlFor="remark" className="field-label">
+                Review remarks
+              </label>
+              <textarea
+                id="remark"
+                value={remark}
+                onChange={(e) => setRemark(e.target.value)}
+                placeholder="Explain what you checked and why you reached this decision…"
+                className="textbox !min-h-[140px]"
+                aria-describedby="remark-count"
+              />
+              <div id="remark-count" className="mt-2 flex items-center gap-3">
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--subtle-fill-secondary)]">
+                  <div
+                    className="h-full rounded-full transition-[width,background-color] duration-300"
+                    style={{ width: `${Math.min(1, remarkLen / 20) * 100}%`, background: remarkOk ? "var(--success)" : "var(--accent-fill)" }}
+                  />
+                </div>
+                <span className={`t-caption tabular-nums ${remarkOk ? "text-[var(--success)]" : "text-fg-2"}`}>
+                  {remarkOk ? "Ready" : `${remarkLen}/20 min`}
+                </span>
+              </div>
+              {error && (
+                <InfoBar severity="error" className="mt-4">
+                  {error}
+                </InfoBar>
+              )}
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                <button onClick={() => setPendingDecision("Approved")} disabled={!remarkOk} className="btn btn-success btn-lg">
+                  <CheckmarkRegular /> Approve
+                </button>
+                <button onClick={() => setPendingDecision("Rejected")} disabled={!remarkOk} className="btn btn-danger btn-lg">
+                  <DismissRegular /> Reject
+                </button>
+              </div>
+            </div>
+          </section>
+        </aside>
       </div>
-
-      <div className="bg-white rounded-xl shadow p-6 mb-6">
-        <h2 className="font-semibold mb-4">Document Review</h2>
-        <ul className="space-y-3 mb-4">
-          {documents.map((d) => (
-            <li key={d.id} className="flex items-center justify-between border-b pb-3 last:border-0">
-              <span className="text-sm font-medium">{d.file_name}</span>
-              <HashDisplay hash={d.file_hash} />
-            </li>
-          ))}
-          {documents.length === 0 && <p className="text-sm text-gray-400">No documents uploaded.</p>}
-        </ul>
-        {hashCheck !== null && (
-          <p className={`text-sm font-medium ${hashCheck ? "text-[#0F8F70]" : "text-failure"}`}>
-            {hashCheck ? "Verified — details hash recorded on-chain" : "Hash mismatch — flag for investigation"}
-          </p>
-        )}
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6 mb-6">
-        <h2 className="font-semibold mb-4">Decision</h2>
-        <p className="text-xs text-gray-400 mb-3">
-          Approving or rejecting will first ask you to confirm a transaction in MetaMask, then record the decision.
-        </p>
-        <textarea
-          value={remark}
-          onChange={(e) => setRemark(e.target.value)}
-          placeholder="Enter your review remarks (minimum 20 characters)..."
-          className="w-full border border-border rounded-lg px-3 py-2 h-28 mb-1"
-        />
-        <p className="text-xs text-gray-400 mb-4">{remark.trim().length}/20 characters minimum</p>
-        {error && <p className="text-sm text-failure mb-3">{error}</p>}
-        <div className="flex gap-3">
-          <button
-            onClick={() => setPendingDecision("Approved")}
-            disabled={remark.trim().length < 20}
-            className="flex-1 bg-ledger-mint text-white py-2 rounded-lg font-medium hover:bg-[#12996F] disabled:opacity-40"
-          >
-            Approve ✅
-          </button>
-          <button
-            onClick={() => setPendingDecision("Rejected")}
-            disabled={remark.trim().length < 20}
-            className="flex-1 bg-failure text-white py-2 rounded-lg font-medium hover:bg-[#C93338] disabled:opacity-40"
-          >
-            Reject ❌
-          </button>
-        </div>
-      </div>
-
-      {history.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-6">
-          <h2 className="font-semibold mb-4">Your Verification History</h2>
-          <ul className="space-y-2">
-            {history.slice(0, 5).map((h) => (
-              <li key={h.id} className="flex justify-between text-sm">
-                <Link href={`/dashboard/verifier/claims/${h.id}`} className="text-chain-indigo hover:underline">
-                  {h.claim_type}
-                </Link>
-                <span className="text-gray-500">{h.status}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {pendingDecision && (
         <ConfirmModal
-          title={`Confirm ${pendingDecision}`}
+          title={`${pendingDecision === "Approved" ? "Approve" : "Reject"} this claim?`}
           message="This action is irreversible and will be recorded on the blockchain via your connected wallet."
-          confirmLabel={pendingDecision}
+          confirmLabel={pendingDecision === "Approved" ? "Approve" : "Reject"}
           danger={pendingDecision === "Rejected"}
           loading={processing}
           onConfirm={confirmDecision}
           onCancel={() => setPendingDecision(null)}
         />
       )}
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[minmax(110px,35%)_1fr] gap-4 px-5 py-3 t-body">
+      <dt className="text-fg-2">{label}</dt>
+      <dd className="text-fg break-words">{value}</dd>
     </div>
   );
 }

@@ -3,10 +3,25 @@ import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useRole } from "@/hooks/useRole";
 import { useClaimRegistry } from "@/hooks/useContract";
-import { INSURANCE_TYPES } from "@/constants/insurance";
-import InsuranceTypeBadge from "@/components/insurance/InsuranceTypeBadge";
+import CategoryGlyph from "@/components/ui/CategoryGlyph";
 import AuditTrailTable from "@/components/blockchain/AuditTrailTable";
 import type { Claim, InsuranceType } from "@/types";
+import {
+  ArrowDownloadRegular,
+  ChevronDownRegular,
+  CubeRegular,
+  FlagFilled,
+  FlagRegular,
+  OpenRegular,
+  ReceiptSearchRegular,
+} from "@fluentui/react-icons";
+import PageHeader from "@/components/ui/PageHeader";
+import InfoBar from "@/components/ui/InfoBar";
+import Spinner from "@/components/ui/Spinner";
+import EmptyState from "@/components/ui/EmptyState";
+import StatusPill from "@/components/shared/StatusPill";
+import TypeFilter from "@/components/insurance/TypeFilter";
+import { Fragment } from "react";
 
 export default function AuditorDashboard() {
   const { wallet } = useRole();
@@ -16,6 +31,7 @@ export default function AuditorDashboard() {
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const [flagging, setFlagging] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (wallet) loadClaims();
@@ -28,6 +44,8 @@ export default function AuditorDashboard() {
       setClaims(d.claims || []);
     } catch {
       setClaims([]);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -70,121 +88,139 @@ export default function AuditorDashboard() {
     }
   }
 
+  const counts: Record<string, number> = { All: claims.length };
+  claims.forEach((c) => c.insurance_type && (counts[c.insurance_type] = (counts[c.insurance_type] || 0) + 1));
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <h1 className="text-2xl font-bold">Blockchain Audit Trail</h1>
-        <button onClick={exportCSV} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-900">
-          Export CSV
-        </button>
-      </div>
-
-      <div className="bg-[#FFF6E5] border border-[#FFB020]/40 text-[#B8760A] text-sm rounded-lg px-4 py-3 mb-6">
-        Read-only access — auditors cannot approve, reject, assign, or settle claims, but may flag a claim for
-        investigation.
-      </div>
-
-      {error && <p className="text-sm text-failure mb-4">{error}</p>}
-
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setTypeFilter("All")}
-          className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-            typeFilter === "All" ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
-          }`}
-        >
-          All
-        </button>
-        {INSURANCE_TYPES.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTypeFilter(t.id)}
-            className={`text-sm px-3 py-1.5 rounded-lg font-medium ${
-              typeFilter === t.id ? "bg-chain-indigo text-white" : "bg-white text-gray-600 hover:bg-cloud"
-            }`}
-          >
-            {t.icon} {t.label}
+      <PageHeader
+        title="Blockchain audit trail"
+        description="Every claim and the transaction that recorded it. Expand a row to see its on-chain history."
+        actions={
+          <button onClick={exportCSV} className="btn" disabled={filtered.length === 0}>
+            <ArrowDownloadRegular /> Export CSV
           </button>
-        ))}
-      </div>
+        }
+      />
 
-      <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto mb-8">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-cloud text-left text-gray-500">
-              <th className="px-4 py-3">Claim ID</th>
-              <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">TX Hash</th>
-              <th className="px-4 py-3">Submitted</th>
-              <th className="px-4 py-3">Flag</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((claim) => (
-              <tr key={claim.id} className="border-b hover:bg-cloud">
-                <td className="px-4 py-3 font-mono text-xs">{claim.id.slice(0, 8)}</td>
-                <td className="px-4 py-3">
-                  <InsuranceTypeBadge type={claim.insurance_type} />
-                </td>
-                <td className="px-4 py-3">{claim.status}</td>
-                <td className="px-4 py-3 font-mono text-xs text-chain-indigo">
-                  {claim.submit_tx_hash ? (
-                    <a href={`https://sepolia.etherscan.io/tx/${claim.submit_tx_hash}`} target="_blank" rel="noreferrer">
-                      {claim.submit_tx_hash.slice(0, 10)}...
-                    </a>
-                  ) : (
-                    "N/A"
-                  )}
-                </td>
-                <td className="px-4 py-3 text-xs">{new Date(claim.submitted_at).toLocaleDateString()}</td>
-                <td className="px-4 py-3">
-                  {claim.flagged ? (
-                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-[#FDECEC] text-failure">Flagged</span>
-                  ) : claim.on_chain_claim_id ? (
-                    <button
-                      onClick={() => handleFlag(claim)}
-                      disabled={flagging === claim.id}
-                      className="text-xs text-failure hover:underline disabled:opacity-40"
-                    >
-                      {flagging === claim.id ? "Flagging..." : "Flag"}
-                    </button>
-                  ) : (
-                    <span className="text-xs text-gray-300">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  {claim.on_chain_claim_id && (
-                    <button
-                      onClick={() =>
-                        setSelectedClaimId(selectedClaimId === claim.on_chain_claim_id ? null : claim.on_chain_claim_id)
-                      }
-                      className="text-chain-indigo hover:underline text-sm"
-                    >
-                      {selectedClaimId === claim.on_chain_claim_id ? "Hide Trail" : "Audit Trail"}
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={7} className="text-center text-gray-400 py-12">
-                  No claims found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <InfoBar severity="info" title="Read-only access." className="enter enter-1 mb-5">
+        Auditors cannot approve, reject, assign, or settle claims, but may flag a claim for investigation.
+      </InfoBar>
 
-      {selectedClaimId && (
-        <div className="bg-white rounded-xl shadow p-6">
-          <h3 className="font-semibold mb-4">Blockchain Audit Trail — Claim #{selectedClaimId}</h3>
-          <AuditTrailTable claimId={selectedClaimId} walletAddress={wallet} />
-        </div>
+      {error && (
+        <InfoBar severity="error" className="mb-4" onDismiss={() => setError("")}>
+          {error}
+        </InfoBar>
       )}
+
+      <div className="enter enter-2 mb-4">
+        <TypeFilter value={typeFilter} onChange={setTypeFilter} counts={counts} />
+      </div>
+
+      <div className="card enter enter-3 overflow-hidden">
+        {loading && !!wallet ? (
+          <div className="space-y-2 p-4" aria-busy>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="skeleton h-12" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState compact icon={ReceiptSearchRegular} title="No claims found" />
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Claim</th>
+                  <th>Status</th>
+                  <th className="hidden md:table-cell">Submit tx</th>
+                  <th className="hidden sm:table-cell">Submitted</th>
+                  <th>Flag</th>
+                  <th className="w-px" aria-label="Audit trail" />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((claim) => {
+                  const open = !!claim.on_chain_claim_id && selectedClaimId === claim.on_chain_claim_id;
+                  return (
+                    <Fragment key={claim.id}>
+                      <tr className={open ? "row-selected" : ""}>
+                        <td>
+                          <span className="flex items-center gap-3">
+                            <CategoryGlyph type={claim.insurance_type} size={32} />
+                            <span className="min-w-0">
+                              <span className="block t-body-strong text-fg">{claim.claim_type}</span>
+                              <span className="block font-mono text-[12px] text-fg-3">#{claim.id.slice(0, 8)}</span>
+                            </span>
+                          </span>
+                        </td>
+                        <td>
+                          <StatusPill status={claim.status} dot />
+                        </td>
+                        <td className="hidden md:table-cell">
+                          {claim.submit_tx_hash ? (
+                            <a
+                              href={`https://sepolia.etherscan.io/tx/${claim.submit_tx_hash}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="link inline-flex items-center gap-1 font-mono text-[12.5px]"
+                              title={claim.submit_tx_hash}
+                            >
+                              {claim.submit_tx_hash.slice(0, 10)}…
+                              <OpenRegular fontSize={12} aria-hidden />
+                            </a>
+                          ) : (
+                            <span className="t-caption text-fg-3">Not recorded</span>
+                          )}
+                        </td>
+                        <td className="hidden whitespace-nowrap text-fg-2 tabular-nums sm:table-cell">{new Date(claim.submitted_at).toLocaleDateString()}</td>
+                        <td>
+                          {claim.flagged ? (
+                            <span className="badge badge-critical">
+                              <FlagFilled aria-hidden /> Flagged
+                            </span>
+                          ) : claim.on_chain_claim_id ? (
+                            <button
+                              onClick={() => handleFlag(claim)}
+                              disabled={flagging === claim.id}
+                              className="btn btn-sm btn-subtle text-fg-2 hover:!text-[var(--critical)]"
+                            >
+                              {flagging === claim.id ? <Spinner size={14} /> : <FlagRegular />}
+                              {flagging === claim.id ? "Flagging…" : "Flag"}
+                            </button>
+                          ) : (
+                            <span className="t-caption text-fg-3">—</span>
+                          )}
+                        </td>
+                        <td className="text-right">
+                          {claim.on_chain_claim_id && (
+                            <button
+                              onClick={() => setSelectedClaimId(open ? null : claim.on_chain_claim_id)}
+                              className="btn btn-sm btn-subtle whitespace-nowrap"
+                              aria-expanded={open}
+                            >
+                              <CubeRegular /> Trail
+                              <ChevronDownRegular className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                      {open && (
+                        <tr className="!bg-transparent">
+                          <td colSpan={6} className="!border-b !border-[var(--divider-stroke)] bg-[var(--card-fill-secondary)] !px-6 !py-5">
+                            <p className="mb-4 t-caption font-semibold text-fg-2">On-chain history — claim #{selectedClaimId}</p>
+                            <AuditTrailTable claimId={selectedClaimId!} walletAddress={wallet} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

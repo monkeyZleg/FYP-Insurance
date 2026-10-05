@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 import { getProvider } from "@/lib/ethers";
 
 const NETWORKS: Record<number, { label: string; color: string }> = {
-  31337: { label: "Hardhat Local", color: "bg-gray-100 text-gray-600" },
-  1337: { label: "Hardhat Local", color: "bg-gray-100 text-gray-600" },
-  11155111: { label: "Sepolia Testnet", color: "bg-[#FFF6E5] text-[#B8760A]" },
-  1: { label: "Ethereum Mainnet", color: "bg-[#E6F7F2] text-[#0F8F70]" },
+  31337: { label: "Hardhat Local", color: "var(--text-tertiary)" },
+  1337: { label: "Hardhat Local", color: "var(--text-tertiary)" },
+  11155111: { label: "Sepolia", color: "var(--caution-solid)" },
+  1: { label: "Mainnet", color: "var(--success)" },
 };
 
 export default function NetworkIndicator() {
@@ -22,11 +22,12 @@ export default function NetworkIndicator() {
   }, []);
 
   if (chainId === null) return null;
-  const net = NETWORKS[chainId] || { label: `Chain ${chainId}`, color: "bg-gray-100 text-gray-600" };
+  const net = NETWORKS[chainId] || { label: `Chain ${chainId}`, color: "var(--text-tertiary)" };
 
   return (
-    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${net.color}`}>
-      ● {net.label}
+    <span className="badge badge-outline" title="Connected network">
+      <span className="status-dot" data-pulse="true" style={{ width: 6, height: 6, background: net.color, color: net.color }} />
+      {net.label}
     </span>
   );
 }
