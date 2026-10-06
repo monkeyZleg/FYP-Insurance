@@ -703,8 +703,36 @@
 @keyframes bloom-spin { to { transform: rotate(360deg); } }
 @keyframes float-y { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
+/* Cold-start splash (app/layout.tsx). 3 dots count in, orbit anticlockwise with
+   dot 1 leading, dot 3 sheds 3 more, the 6-dot ring spins, page is revealed.
+   Pure CSS, 3s total, ends visibility:hidden so it never blocks a click. */
+.splash { position: fixed; inset: 0; z-index: 100; background: linear-gradient(150deg, #0e1d52 0%, #1f3c9c 42%, #3a63e0 100%); animation: splash-out 0.3s 2.7s both; }
+.splash-ring { position: absolute; top: 20vh; left: 50%; animation: splash-spin 2.5s 0.5s ease-in both; }
+.splash-ring > span {
+  position: absolute; --from: 360deg; --to: 240deg; --go: 0.7s; /* defaults = dot 3; dots 4-6 ride with it */
+  animation: splash-orbit 0.8s var(--go) var(--ease-easy) both, splash-lag 0.6s var(--pop) var(--ease-easy) both;
+}
+.splash-ring > span > span {
+  position: absolute; width: 8px; height: 8px; margin: -4px; border-radius: 50%; background: #fff;
+  translate: 16px; animation: splash-pop 0.25s var(--pop) var(--ease-decelerate-max) both;
+}
+.splash-ring > :nth-child(1) { --from: 180deg; --to: 120deg; --go: 0.5s; --pop: 0s; }
+.splash-ring > :nth-child(2) { --from: 240deg; --to: 180deg; --go: 0.6s; --pop: 0.15s; }
+.splash-ring > :nth-child(2) > span { animation: splash-pop 0.25s 0.15s var(--ease-decelerate-max) both, splash-centre 0.8s 0.6s var(--ease-easy) both; }
+.splash-ring > :nth-child(3) { --pop: 0.3s; }
+.splash-ring > :nth-child(4) { --lag: 60deg; --pop: 1s; }
+.splash-ring > :nth-child(5) { --lag: 120deg; --pop: 1.12s; }
+.splash-ring > :nth-child(6) { --lag: 180deg; --pop: 1.24s; }
+@keyframes splash-out { to { opacity: 0; visibility: hidden; } }
+@keyframes splash-spin { to { rotate: -480deg; } }
+@keyframes splash-orbit { from { rotate: var(--from); } to { rotate: var(--to); } }
+@keyframes splash-lag { to { transform: rotate(var(--lag, 0deg)); } }
+@keyframes splash-pop { from { scale: 0; } }
+@keyframes splash-centre { from { translate: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  .splash { display: none; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;

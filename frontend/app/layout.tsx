@@ -48,6 +48,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
+        <div className="splash" role="status" aria-label="Loading">
+          <div className="splash-ring">
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <span key={n}>
+                <span />
+              </span>
+            ))}
+          </div>
+        </div>
         {children}
         <RevealHighlight />
       </body>

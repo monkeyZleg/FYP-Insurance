@@ -106,7 +106,8 @@ export default function Home() {
     if (!heroRef.current || prefersReducedMotion()) return;
     const ctx = gsap.context(() => {
       gsap
-        .timeline({ defaults: { ease: "expo.out" } })
+        // Wait out the 2.7s cold-start splash; 0 on later client-side visits.
+        .timeline({ delay: Math.max(0, 2.7 - performance.now() / 1000), defaults: { ease: "expo.out" } })
         .from(".hero-line", { yPercent: 110, duration: 1.1, stagger: 0.09 })
         .from(".hero-fade", { opacity: 0, y: 16, duration: 0.9, stagger: 0.08 }, "-=0.8")
         .from(".hero-visual", { opacity: 0, y: 40, scale: 0.97, duration: 1.2 }, "-=0.9")
