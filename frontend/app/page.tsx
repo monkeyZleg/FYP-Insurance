@@ -224,7 +224,7 @@ export default function Home() {
 
         <div className="mx-auto max-w-[980px] px-4 text-center sm:px-8">
           <p className="hero-fade inline-flex max-w-full items-center gap-2 rounded-full border border-[var(--control-stroke-secondary)] bg-[var(--control-fill)] py-1 pl-1 pr-3 t-caption text-fg-2 acrylic">
-            <span className="badge badge-accent !h-5 shrink-0">BEICVS</span>
+            <span className="badge badge-accent !h-5 shrink-0">ChainIns</span>
             <span className="truncate">
               <span className="hidden sm:inline">Blockchain-Enhanced </span>Insurance Claim Verification
             </span>
@@ -403,7 +403,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-[1240px] flex-col gap-6 px-4 py-10 sm:px-8 md:flex-row md:items-center md:justify-between">
           <Logo size={22} subtitle="Claim verification, on-chain" />
           <p className="max-w-xl t-caption text-fg-3 md:text-right">
-            BEICVS — Blockchain-Enhanced Insurance Claim Verification System. All data is simulated for a student
+            ChainIns — Blockchain-Enhanced Insurance Claim Verification System. All data is simulated for a student
             project; demonstration only.
           </p>
         </div>
@@ -458,7 +458,7 @@ function ChatPhone() {
       <span className="absolute left-1/2 top-2.5 h-7 w-24 -translate-x-1/2 rounded-full bg-[#15161a] dark:bg-black" />
       <div className="flex flex-col items-center border-b border-[var(--divider-stroke)] pb-2.5 pt-12">
         <Mascot id="chat-mascot" mood="happy" className="h-10 w-10" />
-        <span className="mt-1 t-caption font-semibold text-fg">BEICVS</span>
+        <span className="mt-1 t-caption font-semibold text-fg">ChainIns</span>
       </div>
       <div ref={threadRef} className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-3 py-3 text-left text-[14px] leading-[19px]">
         {CHAT.slice(0, tick >> 1).map((m) => (

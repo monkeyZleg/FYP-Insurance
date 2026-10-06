@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Demo personas, one per role. All BEICVS data is simulated, and the section
+// Demo personas, one per role. All ChainIns data is simulated, and the section
 // says so; these are not real customers.
 const FEEDBACK = [
   {
@@ -89,7 +89,7 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
     <section
       ref={rootRef}
       aria-roledescription="carousel"
-      aria-label="What people say about BEICVS"
+      aria-label="What people say about ChainIns"
       className="border-t border-[var(--divider-stroke)]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -168,7 +168,7 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
             );
           })}
         </div>
-        <p className="mt-6 t-caption text-fg-3">Illustrative feedback from the four demo roles — BEICVS is a student project.</p>
+        <p className="mt-6 t-caption text-fg-3">Illustrative feedback from the four demo roles — ChainIns is a student project.</p>
       </div>
     </section>
   );

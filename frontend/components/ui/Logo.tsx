@@ -1,4 +1,4 @@
-/** BEICVS mark: a shield whose check is drawn as two linked ledger blocks. */
+/** ChainIns mark: a shield whose check is drawn as two linked ledger blocks. */
 export function LogoMark({ size = 24, className = "" }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" className={className} aria-hidden>
@@ -26,7 +26,9 @@ export default function Logo({ size = 24, subtitle }: { size?: number; subtitle?
     <span className="inline-flex items-center gap-2.5">
       <LogoMark size={size} />
       <span className="flex flex-col leading-none">
-        <span className="font-display text-[15px] font-semibold tracking-tight text-fg">BEICVS</span>
+        <span className="font-display text-[15px] font-semibold tracking-tight text-fg">
+          Chain<span className="text-accent-text">Ins</span>
+        </span>
         {subtitle && <span className="mt-0.5 t-caption text-fg-2">{subtitle}</span>}
       </span>
     </span>

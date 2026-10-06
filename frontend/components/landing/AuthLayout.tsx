@@ -21,7 +21,7 @@ export default function AuthLayout({ children, aside }: { children: ReactNode; a
           <Bloom className="w-full" />
         </div>
         <div aria-hidden className="absolute inset-0 -z-10 opacity-[0.07] [background-image:radial-gradient(#fff_1px,transparent_1px)] [background-size:22px_22px]" />
-        <Link href="/" className="w-fit rounded-[var(--radius-control)] [&_.text-fg]:!text-white">
+        <Link href="/" className="w-fit rounded-[var(--radius-control)] [&_.text-fg]:!text-white [&_.text-accent-text]:!text-[#93b1ff]">
           <Logo size={28} />
         </Link>
         <div className="enter max-w-md">

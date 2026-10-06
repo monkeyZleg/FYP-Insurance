@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * The BEICVS mascot — a friendly rounded shield character.
+ * The ChainIns mascot — a friendly rounded shield character.
  * Appears only on the policyholder-facing side, at onboarding, empty
  * states and claim outcomes (see design spec Part 1.5, Principle 4).
  * Never used on staff (verifier/admin/auditor) screens or shared chrome.

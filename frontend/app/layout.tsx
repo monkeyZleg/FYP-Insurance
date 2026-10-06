@@ -20,7 +20,7 @@ const cascadia = Cascadia_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BEICVS — Blockchain-Enhanced Insurance Claim Verification",
+  title: "ChainIns — Blockchain-Enhanced Insurance Claim Verification",
   description: "Claims you can verify, not just trust.",
 };
 

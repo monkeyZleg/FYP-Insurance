@@ -70,7 +70,7 @@ export default function LedgerWindow() {
         {/* title bar */}
         <div className="flex h-9 items-center gap-2 pl-3">
           <LogoMark size={16} />
-          <span className="t-caption text-fg">Claim CLM-0042 — BEICVS</span>
+          <span className="t-caption text-fg">Claim CLM-0042 — ChainIns</span>
           <div className="ml-auto flex h-full text-fg">
             {[SubtractRegular, MaximizeRegular, DismissRegular].map((Icon, i) => (
               <span key={i} className={`grid h-full w-11 place-items-center ${i === 2 ? "hover:bg-[#c42b1c] hover:text-white" : "hover:bg-[var(--subtle-fill-secondary)]"}`}>
@@ -144,7 +144,7 @@ export default function LedgerWindow() {
         role="status"
       >
         <div className="flex items-center gap-2 t-caption text-fg-2">
-          <LogoMark size={14} /> BEICVS
+          <LogoMark size={14} /> ChainIns
         </div>
         <div className="mt-2 flex items-start gap-2.5">
           <ShieldCheckmarkFilled fontSize={20} className="mt-0.5 shrink-0 text-[var(--success)]" aria-hidden />

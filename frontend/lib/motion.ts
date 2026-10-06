@@ -1,5 +1,5 @@
 /**
- * Shared helpers for GSAP animation moments across BEICVS.
+ * Shared helpers for GSAP animation moments across ChainIns.
  * See the design spec, Part 3.4 (Motion rules) — every timeline must
  * respect prefers-reduced-motion, and no animation may block interaction.
  */
