@@ -442,7 +442,12 @@ function ChatPhone() {
   const typing = tick % 2 === 1 && next && !next.me;
   // Thread fills from the top like a new conversation, then follows the newest message.
   const threadRef = useRef<HTMLDivElement>(null);
-  useEffect(() => threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" }), [tick]);
+  // Block body on purpose: Element.scrollTo() returns a Promise in recent
+  // browsers, and an effect must return nothing or a cleanup function.
+  useEffect(() => {
+    const thread = threadRef.current;
+    thread?.scrollTo({ top: thread.scrollHeight, behavior: "smooth" });
+  }, [tick]);
 
   return (
     <div
