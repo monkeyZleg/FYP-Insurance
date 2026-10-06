@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PauseRegular, PlayRegular } from "@fluentui/react-icons";
 
 // Demo personas, one per role. All ChainIns data is simulated, and the section
 // says so; these are not real customers.
@@ -41,12 +42,16 @@ function initials(s: string) {
  * Feedback carousel: one quote at a time, crossfading every few seconds.
  * All quotes share one grid cell so the section never changes height;
  * the outgoing quote fades up and out while the next fades in. Auto-advance
- * runs only while the section is on screen and pauses on hover, keyboard
- * focus, a hidden tab, and under reduced motion.
+ * runs only while the section is on screen, and stops for the pause button,
+ * keyboard focus inside the carousel, a hidden tab, and reduced motion.
+ *
+ * It deliberately does NOT pause on hover: after scrolling with a wheel the
+ * cursor usually rests over the section, which froze it until you scrolled away.
  */
 export default function Testimonials({ serifClassName = "" }: { serifClassName?: string }) {
   const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
+  const [paused, setPaused] = useState(false); // pause button
+  const [focused, setFocused] = useState(false); // keyboard focus inside
   const [reduced, setReduced] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [inView, setInView] = useState(false);
@@ -78,11 +83,24 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
 
   const go = useCallback((i: number) => setIndex((i + FEEDBACK.length) % FEEDBACK.length), []);
 
-  const still = paused || reduced || hidden || !inView;
+  const still = paused || focused || reduced || hidden || !inView;
+
+  // Time left on the current quote: a pause freezes it, resuming continues it,
+  // a new quote starts a full hold. The pill's fill animation pauses in step.
+  const left = useRef(HOLD_MS);
+  const shown = useRef(index);
   useEffect(() => {
+    if (shown.current !== index) {
+      shown.current = index;
+      left.current = HOLD_MS;
+    }
     if (still) return;
-    const id = setTimeout(() => go(index + 1), HOLD_MS);
-    return () => clearTimeout(id);
+    const started = performance.now();
+    const id = setTimeout(() => go(index + 1), left.current);
+    return () => {
+      clearTimeout(id);
+      left.current = Math.max(0, left.current - (performance.now() - started));
+    };
   }, [index, still, go]);
 
   return (
@@ -90,15 +108,14 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
       ref={rootRef}
       aria-roledescription="carousel"
       aria-label="What people say about ChainIns"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
+      // keyboard focus only; a mouse click on a dot must not leave it stuck
+      onFocus={(e) => setFocused((e.target as HTMLElement).matches(":focus-visible"))}
       onBlur={(e) => {
-        if (!rootRef.current?.contains(e.relatedTarget as Node)) setPaused(false);
+        if (!rootRef.current?.contains(e.relatedTarget as Node)) setFocused(false);
       }}
     >
       <div className="mx-auto max-w-[900px] px-4 py-24 text-center sm:px-8 sm:py-32">
-        <div className="grid" aria-live={paused ? "polite" : "off"}>
+        <div className="grid" aria-live={still ? "polite" : "off"}>
           {FEEDBACK.map((f, i) => {
             const on = i === index;
             return (
@@ -134,7 +151,8 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
         </div>
 
         {/* pager: the active pill fills over the hold time */}
-        <div className="mt-12 flex items-center justify-center gap-2" role="tablist" aria-label="Choose feedback">
+        <div className="mt-12 flex items-center justify-center gap-3">
+          <div className="flex items-center gap-2" role="tablist" aria-label="Choose feedback">
           {FEEDBACK.map((f, i) => {
             const on = i === index;
             return (
@@ -154,18 +172,31 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
                 >
                   {on && (
                     <span
-                      key={`${index}-${still}`}
+                      key={index}
                       className="absolute inset-y-0 left-0 rounded-full bg-[var(--accent-fill)]"
-                      style={{
-                        width: still ? "100%" : undefined,
-                        animation: still ? undefined : `feedback-fill ${HOLD_MS}ms linear both`,
-                      }}
+                      style={
+                        reduced
+                          ? { width: "100%" }
+                          : { animation: `feedback-fill ${HOLD_MS}ms linear both`, animationPlayState: still ? "paused" : "running" }
+                      }
                     />
                   )}
                 </span>
               </button>
             );
           })}
+          </div>
+          {!reduced && (
+            <button
+              type="button"
+              onClick={() => setPaused((v) => !v)}
+              className="btn btn-subtle btn-icon btn-sm text-fg-2"
+              aria-label={paused ? "Play feedback slideshow" : "Pause feedback slideshow"}
+              title={paused ? "Play" : "Pause"}
+            >
+              {paused ? <PlayRegular /> : <PauseRegular />}
+            </button>
+          )}
         </div>
         <p className="mt-6 t-caption text-fg-3">Illustrative feedback from the four demo roles — ChainIns is a student project.</p>
       </div>
