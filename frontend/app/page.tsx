@@ -1,45 +1,120 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { EB_Garamond } from "next/font/google";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
-  ArrowDownRegular,
   ArrowRightRegular,
   CheckmarkCircleFilled,
-  CheckmarkStarburstRegular,
   ClipboardTaskListLtrRegular,
   DismissRegular,
   DocumentArrowUpRegular,
-  FingerprintRegular,
   LineHorizontal3Regular,
   LinkMultipleRegular,
   LockClosedKeyRegular,
   MoneyHandRegular,
   PeopleRegular,
-  PersonSearchRegular,
   ReceiptSearchRegular,
   ShieldCheckmarkRegular,
   ShieldErrorRegular,
 } from "@fluentui/react-icons";
 import Mascot from "@/components/mascot/Mascot";
 import Logo from "@/components/ui/Logo";
+import CategoryGlyph from "@/components/ui/CategoryGlyph";
+import Persona from "@/components/ui/Persona";
 import { ThemeCycleButton } from "@/components/ui/ThemeSwitcher";
 import Bloom from "@/components/landing/Bloom";
-import LedgerWindow from "@/components/landing/LedgerWindow";
 import TamperDemo from "@/components/landing/TamperDemo";
+import Testimonials from "@/components/landing/Testimonials";
+import ClaimStatusTracker from "@/components/claims/ClaimStatusTracker";
+import HashDisplay from "@/components/blockchain/HashDisplay";
+import StatusPill from "@/components/shared/StatusPill";
 import { prefersReducedMotion } from "@/lib/motion";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
 }
 
-const JOURNEY_STEPS = [
-  { label: "Submit", caption: "Upload your claim and supporting documents.", Icon: DocumentArrowUpRegular },
-  { label: "Verify", caption: "Documents are hashed and recorded on-chain.", Icon: FingerprintRegular },
-  { label: "Review", caption: "A claim officer checks the case.", Icon: PersonSearchRegular },
-  { label: "Approve", caption: "The decision is recorded on-chain.", Icon: CheckmarkStarburstRegular },
-  { label: "Settle", caption: "Payout is recorded on-chain.", Icon: MoneyHandRegular },
+// Landing headline only; declared here so no other route downloads it.
+const serif = EB_Garamond({ subsets: ["latin"], style: ["normal", "italic"], display: "swap" });
+
+// The phone in the hero: one claim told as a message thread.
+const CHAT: { me?: boolean; text: string }[] = [
+  { me: true, text: "Just submitted my hospital claim. Did it go through?" },
+  { text: "Received. Claim CLM-0042, RM 8,450.00." },
+  { text: "Your 2 documents are fingerprinted and anchored in block #1042." },
+  { me: true, text: "Who's checking it?" },
+  { text: "A claim verifier has it now. Every step shows up here as it happens." },
+  { text: "Approved. The decision is recorded in block #1088." },
+  { me: true, text: "And nobody can change that later?" },
+  { text: "Nobody, including us. You can compare the fingerprint yourself any time." },
+];
+
+// What the policyholder sees at each step: tracker state + the one fact that step adds.
+const block = (n: number) => <span className="ml-auto shrink-0 t-caption tabular-nums text-fg-3">block #{n}</span>;
+const CLAIM_STEPS = [
+  {
+    label: "Submit",
+    caption: "Upload your claim and supporting documents from any browser. You sign in with email, no crypto wallet needed.",
+    status: "Submitted",
+    detail: (
+      <>
+        <DocumentArrowUpRegular fontSize={18} aria-hidden />
+        <span className="truncate">discharge-summary.pdf, itemised-bill.pdf</span>
+        <span className="ml-auto shrink-0 t-caption text-fg-3">2 files</span>
+      </>
+    ),
+  },
+  {
+    label: "Verify",
+    caption: "Each document gets a SHA-256 fingerprint, and that fingerprint is anchored on-chain. Change one byte later and it stops matching.",
+    status: "Submitted",
+    detail: (
+      <>
+        <HashDisplay label="SHA-256" hash="0x9f3a1c7b2e58d04a6c1f93b7e2a85d4c0b6f17e39a2c84d5f0e1b7a3c96d285e" />
+        {block(1042)}
+      </>
+    ),
+  },
+  {
+    label: "Review",
+    caption: "A claim officer is assigned and checks your case. You can see who has it and when it moved.",
+    status: "UnderReview",
+    detail: (
+      <>
+        <Persona name="Nur Aisyah" size={24} />
+        <span className="truncate">Nur Aisyah, claim verifier</span>
+        <span className="ml-auto shrink-0">
+          <StatusPill status="UnderReview" />
+        </span>
+      </>
+    ),
+  },
+  {
+    label: "Approve",
+    caption: "The verifier signs the decision with their own wallet, so it is recorded on-chain under their name.",
+    status: "Approved",
+    detail: (
+      <>
+        <CheckmarkCircleFilled fontSize={18} className="text-[var(--success)]" aria-hidden />
+        <span className="truncate">Signed with the verifier&apos;s wallet</span>
+        {block(1088)}
+      </>
+    ),
+  },
+  {
+    label: "Settle",
+    caption: "The payout is recorded on-chain. The full history stays readable to you, your verifier and an auditor.",
+    status: "Settled",
+    detail: (
+      <>
+        <MoneyHandRegular fontSize={18} aria-hidden />
+        <span className="truncate">RM 8,450.00 paid out</span>
+        {block(1103)}
+      </>
+    ),
+  },
 ];
 
 const ROLE_CARDS = [
@@ -97,9 +172,6 @@ const STATEMENT =
 export default function Home() {
   const heroRef = useRef<HTMLDivElement>(null);
   const statementRef = useRef<HTMLParagraphElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const walkerRef = useRef<HTMLDivElement>(null);
-  const fillRef = useRef<HTMLDivElement>(null);
 
   // Moment A: hero assembles once on load (design spec Part 3.3.A).
   useEffect(() => {
@@ -110,8 +182,7 @@ export default function Home() {
         .timeline({ delay: Math.max(0, 2.7 - performance.now() / 1000), defaults: { ease: "expo.out" } })
         .from(".hero-line", { yPercent: 110, duration: 1.1, stagger: 0.09 })
         .from(".hero-fade", { opacity: 0, y: 16, duration: 0.9, stagger: 0.08 }, "-=0.8")
-        .from(".hero-visual", { opacity: 0, y: 40, scale: 0.97, duration: 1.2 }, "-=0.9")
-        .from(".hero-underline", { strokeDashoffset: 420, duration: 1.2, ease: "power3.inOut" }, "-=1.1");
+        .from(".hero-visual", { opacity: 0, y: 40, scale: 0.97, duration: 1.2 }, "-=0.9");
     }, heroRef);
     return () => ctx.revert();
   }, []);
@@ -139,134 +210,55 @@ export default function Home() {
     return () => ctx.revert();
   }, []);
 
-  // Moment B: claim journey (design spec Part 3.3.B). The chain fills and the
-  // mascot walks along it as the section scrolls past.
-  useEffect(() => {
-    if (!trackRef.current) return;
-    const ctx = gsap.context(() => {
-      const reduced = prefersReducedMotion();
-      const steps = gsap.utils.toArray<HTMLElement>(".journey-step");
-      if (reduced) {
-        gsap.set(steps, { opacity: 1, y: 0 });
-        steps.forEach((step) => step.classList.add("is-lit"));
-        if (fillRef.current) gsap.set(fillRef.current, { scaleX: 1 });
-        return;
-      }
-      steps.forEach((step, i) => {
-        gsap.from(step, {
-          opacity: 0,
-          y: 24,
-          duration: 0.8,
-          ease: "expo.out",
-          delay: i * 0.06,
-          scrollTrigger: { trigger: step, start: "top 88%" },
-        });
-      });
-      const st = { trigger: trackRef.current, start: "top 70%", end: "bottom 55%", scrub: 0.8 };
-      if (fillRef.current) gsap.fromTo(fillRef.current, { scaleX: 0 }, { scaleX: 1, ease: "none", scrollTrigger: st });
-      if (walkerRef.current) {
-        gsap.to(walkerRef.current, {
-          x: () => (trackRef.current?.querySelector(".journey-rail") as HTMLElement | null)?.offsetWidth ?? 0,
-          ease: "none",
-          scrollTrigger: { ...st, invalidateOnRefresh: true },
-        });
-      }
-      ScrollTrigger.create({
-        ...st,
-        onUpdate: (self) =>
-          steps.forEach((step, i) => step.classList.toggle("is-lit", self.progress >= i / (steps.length - 1) - 0.02)),
-      });
-    }, trackRef);
-    return () => ctx.revert();
-  }, []);
-
   return (
     <main className="relative min-h-screen overflow-x-clip">
       <SiteNav />
 
       {/* ------------------------------------------------------------- Hero */}
-      <section ref={heroRef} className="relative isolate pt-28 pb-24 sm:pt-36 lg:pb-32">
+      <section ref={heroRef} className="relative isolate pt-32 pb-24 sm:pt-40 lg:pb-32">
         <div aria-hidden className="absolute inset-0 -z-10 mica" />
-        <div aria-hidden className="pointer-events-none absolute -z-10 right-[-30%] top-[-18%] w-[900px] max-w-none opacity-[0.55] dark:opacity-[0.5] sm:right-[-14%] lg:right-[-8%]">
-          <Bloom className="w-full blur-[2px]" />
+        <div aria-hidden className="pointer-events-none absolute bottom-[-6%] left-1/2 -z-10 w-[980px] max-w-none -translate-x-1/2 opacity-[0.4]">
+          <Bloom className="w-full blur-[3px]" />
         </div>
         <div aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-b from-transparent to-[var(--mica-base)]" />
 
-        <div className="mx-auto grid max-w-[1240px] items-center gap-16 px-4 sm:px-8 lg:grid-cols-[1.08fr_1fr] lg:gap-12">
-          <div className="min-w-0">
-            <p className="hero-fade mb-6 inline-flex max-w-full items-center gap-2 rounded-full border border-[var(--control-stroke-secondary)] bg-[var(--control-fill)] py-1 pl-1 pr-3 t-caption text-fg-2 acrylic">
-              <span className="badge badge-accent !h-5 shrink-0">BEICVS</span>
-              <span className="truncate">
-                <span className="hidden sm:inline">Blockchain-Enhanced </span>Insurance Claim Verification
-              </span>
-            </p>
-            <h1 className="t-display text-fg [font-stretch:94%]">
-              <span className="block overflow-hidden pb-[0.06em]">
-                <span className="hero-line block">Claims you can</span>
-              </span>
-              <span className="block overflow-hidden pb-[0.12em]">
-                <span className="hero-line block">
-                  <span className="relative inline-block">
-                    <span className="bg-gradient-to-br from-[var(--accent-light-1)] via-[var(--accent-base)] to-[var(--accent-dark-2)] bg-clip-text text-transparent dark:from-[var(--accent-light-3)] dark:via-[var(--accent-light-2)] dark:to-[var(--accent-light-1)]">
-                      verify
-                    </span>
-                    <svg aria-hidden viewBox="0 0 400 24" preserveAspectRatio="none" className="absolute -bottom-[0.08em] left-0 h-[0.18em] w-full overflow-visible">
-                      <path
-                        className="hero-underline"
-                        d="M4 16 C 90 4, 220 4, 396 14"
-                        fill="none"
-                        stroke="var(--accent-fill)"
-                        strokeWidth="7"
-                        strokeLinecap="round"
-                        strokeDasharray="420"
-                        strokeDashoffset="0"
-                        opacity="0.45"
-                      />
-                    </svg>
-                  </span>
-                  ,
-                </span>
-              </span>
-              <span className="block overflow-hidden pb-[0.06em]">
-                <span className="hero-line block text-fg-2">not just trust.</span>
-              </span>
-            </h1>
-            <p className="hero-fade mt-7 max-w-xl t-body-large text-fg-2">
-              A tamper-proof, independently verifiable audit trail for insurance claims, anchored on the Ethereum
-              blockchain.
-            </p>
-            <div className="hero-fade mt-9 flex flex-wrap items-center gap-3">
-              <Link href="/login" className="btn btn-accent btn-xl nudge">
-                Log in
-                <ArrowRightRegular />
-              </Link>
-              <a href="#how-it-works" className="btn btn-xl">
-                See how it works
-              </a>
-            </div>
-            <ul className="hero-fade mt-10 flex flex-wrap gap-x-6 gap-y-2 t-body text-fg-2">
-              {["SHA-256 document fingerprints", "Four role-based workspaces", "No wallet needed for policyholders"].map((t) => (
-                <li key={t} className="flex items-center gap-2">
-                  <CheckmarkCircleFilled fontSize={16} className="text-[var(--success)]" aria-hidden />
-                  {t}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="hero-visual relative mx-auto w-full min-w-0 max-w-[520px] lg:max-w-none">
-            <Mascot id="hero-mascot" mood="happy" className="absolute -bottom-12 -left-10 z-10 hidden h-20 w-20 drop-shadow-xl sm:block [animation:float-y_5s_ease-in-out_infinite]" />
-            <LedgerWindow />
+        <div className="mx-auto max-w-[980px] px-4 text-center sm:px-8">
+          <p className="hero-fade inline-flex max-w-full items-center gap-2 rounded-full border border-[var(--control-stroke-secondary)] bg-[var(--control-fill)] py-1 pl-1 pr-3 t-caption text-fg-2 acrylic">
+            <span className="badge badge-accent !h-5 shrink-0">BEICVS</span>
+            <span className="truncate">
+              <span className="hidden sm:inline">Blockchain-Enhanced </span>Insurance Claim Verification
+            </span>
+          </p>
+          <h1 className={`${serif.className} mt-7 text-[clamp(40px,7.4vw,92px)] font-medium leading-[0.98] tracking-[-0.03em] text-fg`}>
+            {/* padding keeps the descenders inside the reveal mask; the negative margin takes it back */}
+            <span className="block overflow-hidden pb-[0.22em]">
+              <span className="hero-line block">Claims you can verify,</span>
+            </span>
+            <span className="-mt-[0.2em] block overflow-hidden pb-[0.22em]">
+              <span className="hero-line block italic">not just trust.</span>
+            </span>
+          </h1>
+          <p className="hero-fade mx-auto mt-5 max-w-[540px] t-body-large text-fg-2">
+            A tamper-proof, independently verifiable audit trail for insurance claims, anchored on the Ethereum
+            blockchain.
+          </p>
+          <div className="hero-fade mt-9 flex flex-wrap items-center justify-center gap-3">
+            <Link href="/login" className="btn btn-accent btn-xl nudge !rounded-full">
+              Log in
+              <ArrowRightRegular />
+            </Link>
+            <a href="#how-it-works" className="btn btn-xl !rounded-full">
+              See how it works
+            </a>
           </div>
         </div>
 
-        <a
-          href="#statement"
-          className="absolute bottom-6 left-1/2 hidden -translate-x-1/2 items-center gap-2 t-caption text-fg-3 transition-colors hover:text-fg lg:flex"
-        >
-          <ArrowDownRegular className="[animation:float-y_2.4s_ease-in-out_infinite]" /> Scroll
-        </a>
+        <div className="hero-visual mt-16 px-4">
+          <ChatPhone />
+        </div>
       </section>
+
+      <ClaimSteps />
 
       {/* --------------------------------------------------------- Statement */}
       <section id="statement" className="relative border-y border-[var(--divider-stroke)] bg-[var(--layer-fill)]">
@@ -285,42 +277,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------ How it works */}
-      <section id="how-it-works" className="scroll-mt-20">
-        <div className="mx-auto max-w-[1240px] px-4 py-24 sm:px-8 sm:py-32">
-          <SectionIntro
-            eyebrow="How it works"
-            title="One claim, five links in a chain."
-            body="Every claim moves through the same verifiable sequence — each step locks into place on-chain. This is also a preview of what logging in unlocks."
-          />
-
-          <div ref={trackRef} className="relative mt-16">
-            {/* rail */}
-            <div className="journey-rail absolute left-[10%] right-[10%] top-7 hidden h-[3px] rounded-full bg-[var(--control-stroke-secondary)] md:block">
-              <div ref={fillRef} className="h-full origin-left rounded-full bg-gradient-to-r from-[var(--accent-fill)] to-[var(--success)]" />
-              <div ref={walkerRef} className="absolute -left-5 -top-[46px] h-10 w-10">
-                <Mascot id="journey-walker-mascot" mood="neutral" className="h-10 w-10 drop-shadow-md" />
-              </div>
-            </div>
-            <ol className="relative grid grid-cols-1 gap-4 md:grid-cols-5 md:gap-4">
-              {JOURNEY_STEPS.map((step, i) => (
-                <li key={step.label} className="journey-step group flex gap-4 md:flex-col md:items-center md:text-center">
-                  <span className="journey-node relative z-[1] grid h-14 w-14 shrink-0 place-items-center rounded-[14px] border border-[var(--card-stroke)] bg-[var(--solid-quarternary)] text-fg-2 shadow-[var(--shadow-card)] transition-[background-color,color,box-shadow,transform] duration-500 ease-[cubic-bezier(0.1,0.9,0.2,1)]">
-                    <step.Icon fontSize={26} aria-hidden />
-                  </span>
-                  <span className="md:mt-4">
-                    <span className="flex items-center gap-2 md:justify-center">
-                      <span className="t-caption tabular-nums text-fg-3">0{i + 1}</span>
-                      <span className="t-subtitle text-fg">{step.label}</span>
-                    </span>
-                    <span className="mt-1 block t-body text-fg-2 md:mx-auto md:max-w-[200px]">{step.caption}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </div>
-      </section>
 
       {/* ------------------------------------------------------- Tamper demo */}
       <section id="try-it" className="relative isolate overflow-hidden border-y border-[var(--divider-stroke)] bg-[var(--layer-fill)]">
@@ -408,6 +364,9 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ---------------------------------------------------------- Feedback */}
+      <Testimonials serifClassName={serif.className} />
+
       {/* -------------------------------------------------------------- CTA */}
       <section className="px-4 pb-10 sm:px-8">
         <div className="relative isolate mx-auto max-w-[1240px] overflow-hidden rounded-[16px] border border-[var(--card-stroke)] px-6 py-20 text-center sm:px-12 sm:py-24">
@@ -450,14 +409,6 @@ export default function Home() {
         </div>
       </footer>
 
-      <style>{`
-        .journey-step.is-lit .journey-node {
-          background: var(--accent-fill);
-          color: var(--text-on-accent);
-          box-shadow: 0 0 0 6px var(--accent-subtle), 0 10px 24px -10px var(--accent-fill);
-          transform: translateY(-2px);
-        }
-      `}</style>
     </main>
   );
 }
@@ -471,6 +422,150 @@ function SectionIntro({ eyebrow, title, body }: { eyebrow: string; title: string
       </h2>
       <p className="mt-5 t-body-large text-fg-2">{body}</p>
     </div>
+  );
+}
+
+/** Phone mock-up whose thread plays one claim from submission to approval, then loops. */
+function ChatPhone() {
+  // Half-steps: on an odd tick the next reply is still "typing".
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTick(CHAT.length * 2);
+      return;
+    }
+    const id = setInterval(() => setTick((t) => (t >= CHAT.length * 2 + 5 ? 0 : t + 1)), 750);
+    return () => clearInterval(id);
+  }, []);
+  const next = CHAT[tick >> 1];
+  const typing = tick % 2 === 1 && next && !next.me;
+  // Thread fills from the top like a new conversation, then follows the newest message.
+  const threadRef = useRef<HTMLDivElement>(null);
+  useEffect(() => threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" }), [tick]);
+
+  return (
+    <div
+      role="img"
+      aria-label="Example message thread: a policyholder submits a claim, its documents are fingerprinted on-chain, and the approval is recorded."
+      className="relative mx-auto flex h-[620px] w-[310px] max-w-full flex-col overflow-hidden rounded-[52px] border-[9px] border-[#15161a] bg-[var(--solid-quarternary)] shadow-window dark:border-[#34353b]"
+    >
+      <span className="absolute left-1/2 top-2.5 h-7 w-24 -translate-x-1/2 rounded-full bg-[#15161a] dark:bg-black" />
+      <div className="flex flex-col items-center border-b border-[var(--divider-stroke)] pb-2.5 pt-12">
+        <Mascot id="chat-mascot" mood="happy" className="h-10 w-10" />
+        <span className="mt-1 t-caption font-semibold text-fg">BEICVS</span>
+      </div>
+      <div ref={threadRef} className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-3 py-3 text-left text-[14px] leading-[19px]">
+        {CHAT.slice(0, tick >> 1).map((m) => (
+          <p
+            key={m.text}
+            className={`enter max-w-[82%] shrink-0 rounded-[18px] px-3 py-2 ${
+              m.me ? "self-end rounded-br-[6px] bg-[var(--accent-fill)] text-on-accent" : "self-start rounded-bl-[6px] bg-[var(--control-alt-fill-tertiary)] text-fg"
+            }`}
+          >
+            {m.text}
+          </p>
+        ))}
+        {typing && (
+          <p className="flex shrink-0 gap-1 self-start rounded-[18px] rounded-bl-[6px] bg-[var(--control-alt-fill-tertiary)] px-3.5 py-3">
+            {[0, 150, 300].map((d) => (
+              <span key={d} className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--text-secondary)]" style={{ animationDelay: `${d}ms` }} />
+            ))}
+          </p>
+        )}
+      </div>
+      <div className="mx-3 mb-4 flex h-9 items-center rounded-full border border-[var(--control-stroke-secondary)] px-4 t-body text-fg-3">Message</div>
+    </div>
+  );
+}
+
+/**
+ * How it works: the list stays pinned while the claim card on the right scrolls
+ * through its five states. The rule under the open step fills as you read it.
+ */
+function ClaimSteps() {
+  const [active, setActive] = useState(0);
+  const listRef = useRef<HTMLOListElement>(null);
+  const visualsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const n = CLAIM_STEPS.length;
+    const st = ScrollTrigger.create({
+      trigger: visualsRef.current,
+      start: "top 55%",
+      end: "bottom 55%",
+      onUpdate: (self) => {
+        const at = Math.min(self.progress * n, n - 0.001); // 2.4 = step 3, 40% read
+        setActive(Math.floor(at));
+        listRef.current?.style.setProperty("--fill", String(at % 1));
+      },
+    });
+    return () => st.kill();
+  }, []);
+
+  return (
+    <section id="how-it-works" className="scroll-mt-20 border-t border-[var(--divider-stroke)]">
+      <div className="mx-auto grid max-w-[1240px] gap-10 px-4 py-24 sm:px-8 sm:py-32 lg:grid-cols-[400px_1fr] lg:gap-16">
+        <div className="lg:sticky lg:top-28 lg:self-start">
+          <p className="flex items-center gap-2.5 t-body text-fg">
+            <span className="grid h-7 w-7 place-items-center rounded-[6px] bg-[var(--accent-subtle-strong)] text-accent-text">
+              <ShieldCheckmarkRegular fontSize={16} aria-hidden />
+            </span>
+            Your claim, step by step
+          </p>
+          <h2 className="mt-5 font-display text-[clamp(24px,2.5vw,32px)] font-semibold leading-[1.22] tracking-[-0.02em] text-fg">
+            Submit once.{" "}
+            <span className="font-medium text-fg-3">Then watch every step lock into a record nobody can quietly edit.</span>
+          </h2>
+          <ol ref={listRef} className="mt-9 hidden border-t border-[var(--divider-stroke)] lg:block">
+            {CLAIM_STEPS.map((s, i) => (
+              <li key={s.label} className="relative border-b border-[var(--divider-stroke)]">
+                <a href={`#step-${i}`} aria-current={active === i ? "step" : undefined} className="block rounded-[var(--radius-control)] py-4">
+                  <span className={`t-body-large transition-colors duration-300 ${active === i ? "font-semibold text-fg" : "text-fg-2 hover:text-fg"}`}>{s.label}</span>
+                  <span className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.1,0.9,0.2,1)] ${active === i ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                    <span className="overflow-hidden">
+                      <span className="block pb-1 pt-2 t-body text-fg-2">{s.caption}</span>
+                    </span>
+                  </span>
+                </a>
+                {active === i && (
+                  <span aria-hidden className="absolute -bottom-px left-0 h-[2px] w-full origin-left bg-[var(--accent-fill)]" style={{ transform: "scaleX(var(--fill, 0))" }} />
+                )}
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        <div ref={visualsRef} className="space-y-6">
+          {CLAIM_STEPS.map((s, i) => (
+            <div key={s.label} id={`step-${i}`} className="scroll-mt-28">
+              <div className="mb-3 lg:hidden">
+                <h3 className="t-subtitle text-fg">{s.label}</h3>
+                <p className="mt-1 t-body text-fg-2">{s.caption}</p>
+              </div>
+              <div
+                className="grid place-items-center rounded-[20px] px-4 py-12 sm:px-10 lg:min-h-[64vh]"
+                style={{ background: `linear-gradient(${115 + i * 35}deg, #0e1d52, #1f3c9c 42%, #3a63e0)` }}
+              >
+                <div className="w-full max-w-[480px] rounded-[12px] bg-[var(--solid-quarternary)] p-5 shadow-dialog">
+                  <div className="flex items-center gap-3">
+                    <CategoryGlyph type="health" variant="solid" size={40} />
+                    <div className="min-w-0">
+                      <p className="truncate t-body-strong text-fg">Inpatient · Pantai Hospital KL</p>
+                      <p className="t-caption text-fg-2">Claim CLM-0042 · RM 8,450.00</p>
+                    </div>
+                  </div>
+                  <div className="mt-6">
+                    <ClaimStatusTracker status={s.status} />
+                  </div>
+                  <div className="mt-6 flex min-h-11 items-center gap-2.5 border-t border-[var(--divider-stroke)] pt-4 t-body text-fg-2">{s.detail}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 

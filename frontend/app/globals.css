@@ -701,6 +701,7 @@
 @keyframes dialog-in { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: none; } }
 @keyframes smoke-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes bloom-spin { to { transform: rotate(360deg); } }
+@keyframes feedback-fill { from { width: 0; } to { width: 100%; } }
 @keyframes float-y { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
 /* Cold-start splash (app/layout.tsx). 3 dots count in, orbit anticlockwise with
