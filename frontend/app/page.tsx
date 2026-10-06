@@ -211,16 +211,14 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="relative min-h-screen overflow-x-clip">
+    <main className="mica relative min-h-screen overflow-x-clip">
       <SiteNav />
 
       {/* ------------------------------------------------------------- Hero */}
       <section ref={heroRef} className="relative isolate pt-32 pb-24 sm:pt-40 lg:pb-32">
-        <div aria-hidden className="absolute inset-0 -z-10 mica" />
         <div aria-hidden className="pointer-events-none absolute bottom-[-6%] left-1/2 -z-10 w-[980px] max-w-none -translate-x-1/2 opacity-[0.4]">
-          <Bloom className="w-full blur-[3px]" />
+          <Bloom className="w-full blur-[3px] [mask-image:radial-gradient(closest-side,#000_45%,transparent)]" />
         </div>
-        <div aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-b from-transparent to-[var(--mica-base)]" />
 
         <div className="mx-auto max-w-[980px] px-4 text-center sm:px-8">
           <p className="hero-fade inline-flex max-w-full items-center gap-2 rounded-full border border-[var(--control-stroke-secondary)] bg-[var(--control-fill)] py-1 pl-1 pr-3 t-caption text-fg-2 acrylic">
@@ -261,7 +259,7 @@ export default function Home() {
       <ClaimSteps />
 
       {/* --------------------------------------------------------- Statement */}
-      <section id="statement" className="relative border-y border-[var(--divider-stroke)] bg-[var(--layer-fill)]">
+      <section id="statement" className="relative">
         <div className="mx-auto max-w-[1100px] px-4 py-24 sm:px-8 sm:py-32">
           <p className="t-eyebrow mb-6">The problem, in one line</p>
           <p ref={statementRef} className="font-display text-[clamp(26px,3.6vw,46px)] font-semibold leading-[1.18] tracking-[-0.02em] text-fg">
@@ -279,9 +277,9 @@ export default function Home() {
 
 
       {/* ------------------------------------------------------- Tamper demo */}
-      <section id="try-it" className="relative isolate overflow-hidden border-y border-[var(--divider-stroke)] bg-[var(--layer-fill)]">
+      <section id="try-it" className="relative isolate">
         <div aria-hidden className="pointer-events-none absolute -left-40 bottom-[-30%] -z-10 w-[640px] opacity-25 dark:opacity-30">
-          <Bloom spin={false} className="w-full blur-2xl" />
+          <Bloom spin={false} className="w-full blur-2xl [mask-image:radial-gradient(closest-side,#000_35%,transparent)]" />
         </div>
         <div className="mx-auto max-w-[1240px] px-4 py-24 sm:px-8 sm:py-32">
           <SectionIntro
@@ -340,7 +338,7 @@ export default function Home() {
       </section>
 
       {/* ---------------------------------------------------- Why blockchain */}
-      <section className="border-t border-[var(--divider-stroke)]">
+      <section>
         <div className="mx-auto max-w-[1240px] px-4 py-24 sm:px-8 sm:py-32">
           <SectionIntro
             eyebrow="Why blockchain?"
@@ -509,7 +507,7 @@ function ClaimSteps() {
   }, []);
 
   return (
-    <section id="how-it-works" className="scroll-mt-20 border-t border-[var(--divider-stroke)]">
+    <section id="how-it-works" className="scroll-mt-20">
       <div className="mx-auto grid max-w-[1240px] gap-10 px-4 py-24 sm:px-8 sm:py-32 lg:grid-cols-[400px_1fr] lg:gap-16">
         <div className="lg:sticky lg:top-28 lg:self-start">
           <p className="flex items-center gap-2.5 t-body text-fg">
@@ -522,7 +520,7 @@ function ClaimSteps() {
             Submit once.{" "}
             <span className="font-medium text-fg-3">Then watch every step lock into a record nobody can quietly edit.</span>
           </h2>
-          <ol ref={listRef} className="mt-9 hidden border-t border-[var(--divider-stroke)] lg:block">
+          <ol ref={listRef} className="mt-9 hidden lg:block">
             {CLAIM_STEPS.map((s, i) => (
               <li key={s.label} className="relative border-b border-[var(--divider-stroke)]">
                 <a href={`#step-${i}`} aria-current={active === i ? "step" : undefined} className="block rounded-[var(--radius-control)] py-4">
@@ -563,7 +561,7 @@ function ClaimSteps() {
                   <div className="mt-6">
                     <ClaimStatusTracker status={s.status} />
                   </div>
-                  <div className="mt-6 flex min-h-11 items-center gap-2.5 border-t border-[var(--divider-stroke)] pt-4 t-body text-fg-2">{s.detail}</div>
+                  <div className="mt-6 flex min-h-11 items-center gap-2.5 rounded-[var(--radius-control)] bg-[var(--subtle-fill-tertiary)] px-3 py-2 t-body text-fg-2">{s.detail}</div>
                 </div>
               </div>
             </div>

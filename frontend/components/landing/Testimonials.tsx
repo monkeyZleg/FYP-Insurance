@@ -90,7 +90,6 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
       ref={rootRef}
       aria-roledescription="carousel"
       aria-label="What people say about ChainIns"
-      className="border-t border-[var(--divider-stroke)]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
