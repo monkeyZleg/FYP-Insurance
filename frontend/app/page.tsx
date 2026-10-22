@@ -166,6 +166,14 @@ const WHY_BLOCKCHAIN = [
   },
 ];
 
+// One tile per product on the public quote pages; no login needed to get an estimate.
+const QUOTE_TILES = [
+  { href: "/quote/car", label: "Car", hint: "Calculate your premium", glyph: "car" },
+  { href: "/quote/motor", label: "Motor", hint: "Calculate your premium", glyph: "motorcycle" },
+  { href: "/quote/travel", label: "Travel", hint: "Umrah, trips & annual", glyph: "travel" },
+  { href: "/quote/health", label: "Health", hint: "Life, medical & critical illness", glyph: "health" },
+] as const;
+
 const STATEMENT =
   "Today, only the insurer can see what happened to your claim. Here, everyone with a stake in it — you, your verifier, an auditor — can check the record for themselves.";
 
@@ -248,6 +256,21 @@ export default function Home() {
             <a href="#how-it-works" className="btn btn-xl !rounded-full">
               See how it works
             </a>
+          </div>
+
+          <div id="get-quote" className="hero-fade mx-auto mt-14 max-w-[760px] scroll-mt-28">
+            <h2 className="t-body-strong text-fg">Get a free quote now</h2>
+            <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {QUOTE_TILES.map((t) => (
+                <li key={t.href}>
+                  <Link href={t.href} className="card card-interactive reveal flex h-full flex-col items-center gap-2.5 px-3 py-5 text-center">
+                    <CategoryGlyph type={t.glyph} variant="solid" size={52} />
+                    <span className="t-body-strong text-fg">{t.label} insurance</span>
+                    <span className="t-caption text-fg-3">{t.hint}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
 
@@ -584,6 +607,7 @@ function SiteNav() {
   }, []);
 
   const links = [
+    { href: "#get-quote", label: "Get a quote" },
     { href: "#how-it-works", label: "How it works" },
     { href: "#try-it", label: "Try it" },
     { href: "#for-roles", label: "For insurers" },

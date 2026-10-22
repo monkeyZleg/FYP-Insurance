@@ -6,10 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:quotes": "node scripts/check-quotes.mjs"
   },
   "dependencies": {
-    "@fluentui/react-icons": "^2.0.343",
+    "@fluentui/react-icons": "^2.0.344",
     "@supabase/supabase-js": "^2.116.0",
     "ethers": "^6.17.0",
     "gsap": "^3.15.0",

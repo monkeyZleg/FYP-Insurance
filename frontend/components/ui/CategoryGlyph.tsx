@@ -7,10 +7,13 @@ import {
   PersonHeartRegular,
   VehicleCarFilled,
   VehicleCarRegular,
+  VehicleMotorcycleFilled,
+  VehicleMotorcycleRegular,
 } from "@fluentui/react-icons";
 import type { InsuranceType, PolicyPlanType } from "@/types";
 
-type Category = InsuranceType | PolicyPlanType;
+// The public quote pages sell four products, which don't line up one-to-one with the claim types.
+type Category = InsuranceType | PolicyPlanType | "car" | "motorcycle" | "travel";
 
 const MAP: Record<Category, { tint: string; Filled: typeof AirplaneFilled; Regular: typeof AirplaneRegular }> = {
   health: { tint: "var(--cat-health)", Filled: HeartPulseFilled, Regular: HeartPulseRegular },
@@ -19,6 +22,9 @@ const MAP: Record<Category, { tint: string; Filled: typeof AirplaneFilled; Regul
   transportation: { tint: "var(--cat-transport)", Filled: VehicleCarFilled, Regular: VehicleCarRegular },
   motor: { tint: "var(--cat-transport)", Filled: VehicleCarFilled, Regular: VehicleCarRegular },
   flight: { tint: "var(--cat-flight)", Filled: AirplaneFilled, Regular: AirplaneRegular },
+  car: { tint: "var(--cat-transport)", Filled: VehicleCarFilled, Regular: VehicleCarRegular },
+  motorcycle: { tint: "var(--cat-transport)", Filled: VehicleMotorcycleFilled, Regular: VehicleMotorcycleRegular },
+  travel: { tint: "var(--cat-flight)", Filled: AirplaneFilled, Regular: AirplaneRegular },
 };
 
 export function categoryTint(type: Category | null | undefined) {

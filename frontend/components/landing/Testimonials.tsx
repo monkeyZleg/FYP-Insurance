@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeftRegular, ChevronRightRegular } from "@fluentui/react-icons";
+import { useCallback, useEffect, useState } from "react";
 
 // Demo personas, one per role. All ChainIns data is simulated, and the section
 // says so; these are not real customers.
@@ -26,7 +27,10 @@ const FEEDBACK = [
   },
 ];
 
-const HOLD_MS = 6500;
+const HOLD_MS = 10000;
+
+const ARROW =
+  "absolute top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-[var(--control-stroke-secondary)] text-fg-3 opacity-40 transition-[opacity,color,background-color] duration-300 hover:opacity-100 hover:text-fg focus-visible:opacity-100";
 
 function initials(s: string) {
   return s
@@ -38,19 +42,16 @@ function initials(s: string) {
 }
 
 /**
- * Feedback carousel: one quote at a time, crossfading every few seconds.
+ * Feedback carousel: one quote at a time, crossfading every 15 seconds.
  * All quotes share one grid cell so the section never changes height;
  * the outgoing quote fades up and out while the next fades in. Auto-advance
- * runs only while the section is on screen and pauses on hover, keyboard
- * focus, a hidden tab, and under reduced motion.
+ * runs continuously and pauses only on a hidden tab
+ * and under reduced motion.
  */
 export default function Testimonials({ serifClassName = "" }: { serifClassName?: string }) {
   const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
   const [reduced, setReduced] = useState(false);
   const [hidden, setHidden] = useState(false);
-  const [inView, setInView] = useState(false);
-  const rootRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -67,18 +68,9 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
     return () => document.removeEventListener("visibilitychange", on);
   }, []);
 
-  // Only rotate while the section is on screen, so nobody misses the first quote.
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { threshold: 0.4 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
   const go = useCallback((i: number) => setIndex((i + FEEDBACK.length) % FEEDBACK.length), []);
 
-  const still = paused || reduced || hidden || !inView;
+  const still = reduced || hidden;
   useEffect(() => {
     if (still) return;
     const id = setTimeout(() => go(index + 1), HOLD_MS);
@@ -87,18 +79,19 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
 
   return (
     <section
-      ref={rootRef}
       aria-roledescription="carousel"
       aria-label="What people say about ChainIns"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={(e) => {
-        if (!rootRef.current?.contains(e.relatedTarget as Node)) setPaused(false);
-      }}
     >
       <div className="mx-auto max-w-[900px] px-4 py-24 text-center sm:px-8 sm:py-32">
-        <div className="grid" aria-live={paused ? "polite" : "off"}>
+        <div className="relative px-10 sm:px-14">
+          {/* clicking an arrow changes index, which restarts the 15s timer */}
+          <button type="button" aria-label="Previous feedback" onClick={() => go(index - 1)} className={`${ARROW} left-0`}>
+            <ChevronLeftRegular fontSize={22} />
+          </button>
+          <button type="button" aria-label="Next feedback" onClick={() => go(index + 1)} className={`${ARROW} right-0`}>
+            <ChevronRightRegular fontSize={22} />
+          </button>
+        <div className="grid" aria-live="off">
           {FEEDBACK.map((f, i) => {
             const on = i === index;
             return (
@@ -131,6 +124,7 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
               </figure>
             );
           })}
+        </div>
         </div>
 
         {/* pager: the active pill fills over the hold time */}
