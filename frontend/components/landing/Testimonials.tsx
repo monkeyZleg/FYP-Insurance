@@ -72,9 +72,17 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
 
   const still = reduced || hidden;
   useEffect(() => {
+    if (shown.current !== index) {
+      shown.current = index;
+      left.current = HOLD_MS;
+    }
     if (still) return;
-    const id = setTimeout(() => go(index + 1), HOLD_MS);
-    return () => clearTimeout(id);
+    const started = performance.now();
+    const id = setTimeout(() => go(index + 1), left.current);
+    return () => {
+      clearTimeout(id);
+      left.current = Math.max(0, left.current - (performance.now() - started));
+    };
   }, [index, still, go]);
 
   return (
@@ -128,7 +136,8 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
         </div>
 
         {/* pager: the active pill fills over the hold time */}
-        <div className="mt-12 flex items-center justify-center gap-2" role="tablist" aria-label="Choose feedback">
+        <div className="mt-12 flex items-center justify-center gap-3">
+          <div className="flex items-center gap-2" role="tablist" aria-label="Choose feedback">
           {FEEDBACK.map((f, i) => {
             const on = i === index;
             return (
@@ -148,18 +157,31 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
                 >
                   {on && (
                     <span
-                      key={`${index}-${still}`}
+                      key={index}
                       className="absolute inset-y-0 left-0 rounded-full bg-[var(--accent-fill)]"
-                      style={{
-                        width: still ? "100%" : undefined,
-                        animation: still ? undefined : `feedback-fill ${HOLD_MS}ms linear both`,
-                      }}
+                      style={
+                        reduced
+                          ? { width: "100%" }
+                          : { animation: `feedback-fill ${HOLD_MS}ms linear both`, animationPlayState: still ? "paused" : "running" }
+                      }
                     />
                   )}
                 </span>
               </button>
             );
           })}
+          </div>
+          {!reduced && (
+            <button
+              type="button"
+              onClick={() => setPaused((v) => !v)}
+              className="btn btn-subtle btn-icon btn-sm text-fg-2"
+              aria-label={paused ? "Play feedback slideshow" : "Pause feedback slideshow"}
+              title={paused ? "Play" : "Pause"}
+            >
+              {paused ? <PlayRegular /> : <PauseRegular />}
+            </button>
+          )}
         </div>
         <p className="mt-6 t-caption text-fg-3">Illustrative feedback from the four demo roles — ChainIns is a student project.</p>
       </div>
