@@ -19,7 +19,10 @@ contract PolicyRegistry is AccessControl {
     ///         Defaults to 14 days per the spec's design assumption.
     uint256 public graceDays = 14 days;
 
-    enum PolicyType { Motor, Medical, Life }
+    /// @dev Matches the four insurance types of the claim form and quote
+    ///      pages. Motor = motorcycle. Order is fixed: Car = 0, Motor = 1,
+    ///      Travel = 2, Health = 3 (keep backend/frontend enums in sync).
+    enum PolicyType { Car, Motor, Travel, Health }
     enum PaymentMode { PayNow, Instalment, PayLater }
     enum PolicyStatus { PendingPayment, Active, GracePeriod, Lapsed, Expired }
     enum Reason {
@@ -248,7 +251,10 @@ contract PolicyRegistry is AccessControl {
         if (incidentDate > block.timestamp) {
             return (false, Reason.INVALID_DATE);
         }
-        if (incidentDate < p.startDate || incidentDate > p.endDate) {
+        // Incident dates are calendar dates (midnight, no time of day), so an
+        // incident dated on the day the policy starts is covered: the date
+        // only falls outside when it is a full day or more before the start.
+        if (incidentDate + 1 days <= p.startDate || incidentDate > p.endDate) {
             return (false, Reason.OUTSIDE_COVERAGE_PERIOD);
         }
 

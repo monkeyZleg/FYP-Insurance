@@ -23,17 +23,21 @@ function ageLabel(iso: string) {
 }
 
 export default function VerifierQueue() {
-  const { wallet, userName } = useRole();
+  const { wallet, userName, userId } = useRole();
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<InsuranceType | "All">("All");
+  const [reviewedToday, setReviewedToday] = useState(0);
 
   async function loadClaims() {
     try {
       const data = await apiFetch("/api/claims/all", {}, wallet);
-      const assigned = (data.claims || []).filter(
-        (c: Claim) => c.status === "UnderReview" && c.assigned_verifier_id !== null
+      const all: Claim[] = data.claims || [];
+      const today = new Date().toDateString();
+      setReviewedToday(
+        all.filter((c) => c.assigned_verifier_id === userId && c.decided_at && new Date(c.decided_at).toDateString() === today).length
       );
+      const assigned = all.filter((c) => c.status === "UnderReview" && c.assigned_verifier_id !== null);
       assigned.sort(
         (a: Claim, b: Claim) => new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime()
       );
@@ -60,11 +64,6 @@ export default function VerifierQueue() {
     const m: Record<string, number> = { All: claims.length };
     claims.forEach((c) => c.insurance_type && (m[c.insurance_type] = (m[c.insurance_type] || 0) + 1));
     return m;
-  }, [claims]);
-
-  const reviewedToday = useMemo(() => {
-    const today = new Date().toDateString();
-    return claims.filter((c) => new Date(c.last_updated_at).toDateString() === today && c.status !== "UnderReview").length;
   }, [claims]);
 
   return (

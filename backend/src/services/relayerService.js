@@ -27,15 +27,19 @@ const POLICY_REGISTRY_ABI = [
 ];
 
 const CLAIM_REGISTRY_ABI = [
-  "function submitClaim(bytes32 holderId, uint256 policyId, uint8 claimType, uint64 incidentDate, bytes32[] docHashes, bytes32 detailsHash) external returns (uint256)",
-  "function getClaim(uint256 claimId) external view returns (tuple(bytes32 holderId, uint256 policyId, uint8 claimType, uint64 incidentDate, uint64 submittedAt, bytes32 detailsHash, bytes32[] docHashes, address assignedVerifier, address decidedBy, uint64 decidedAt, bytes32 remarkHash, uint8 reasonCode, bool flagged, uint8 status) claim)",
+  "function submitClaim(bytes32 holderId, uint256 policyId, uint8 claimType, uint64 incidentDate, bytes32[] docHashes, bytes32 detailsHash, uint256 claimedAmount) external returns (uint256)",
+  "function getClaim(uint256 claimId) external view returns (tuple(bytes32 holderId, uint256 policyId, uint8 claimType, uint64 incidentDate, uint64 submittedAt, bytes32 detailsHash, bytes32[] docHashes, address assignedVerifier, address decidedBy, uint64 decidedAt, bytes32 remarkHash, uint8 reasonCode, bool flagged, uint8 status, uint256 claimedAmount, uint256 approvedPayout, uint256 serviceCharge, uint256 netPayout) claim)",
   "function verifyDocument(uint256 claimId, bytes32 docHash) external view returns (bool)",
-  "event ClaimSubmitted(uint256 indexed claimId, uint256 indexed policyId, bytes32 indexed holderId, bytes32[] docHashes, bytes32 detailsHash)",
+  "function serviceCharge() external view returns (bool flat, uint16 rateBps, uint256 flatFee, uint256 minFee, uint256 maxFee, bool policyholderPays)",
+  "function quoteServiceCharge(uint256 payout) external view returns (uint256 charge, uint256 net)",
+  "function totalServiceCharges() external view returns (uint256)",
+  "event ClaimSubmitted(uint256 indexed claimId, uint256 indexed policyId, bytes32 indexed holderId, bytes32[] docHashes, bytes32 detailsHash, uint256 claimedAmount)",
   "event VerifierAssigned(uint256 indexed claimId, address indexed verifier)",
-  "event ClaimDecided(uint256 indexed claimId, bool approve, address indexed verifier, uint8 reasonCode, bytes32 remarkHash)",
-  "event ClaimSettled(uint256 indexed claimId, bytes32 payoutRefHash)",
+  "event ClaimDecided(uint256 indexed claimId, bool approve, address indexed verifier, uint8 reasonCode, bytes32 remarkHash, uint256 approvedPayout)",
+  "event ClaimSettled(uint256 indexed claimId, bytes32 payoutRefHash, uint256 approvedPayout, uint256 serviceCharge, uint256 netPayout)",
   "event ClaimFlagged(uint256 indexed claimId, address indexed auditor, bytes32 findingHash)",
   "event DocumentReused(bytes32 indexed docHash, uint256 oldClaimId, uint256 newClaimId)",
+  "event ServiceChargeUpdated(bool flat, uint16 rateBps, uint256 flatFee, uint256 minFee, uint256 maxFee, bool policyholderPays, address indexed updatedBy)",
   "error EmptyDocHashes()",
   "error TooManyDocHashes()",
   "error EmptyHash()",
@@ -46,6 +50,9 @@ const CLAIM_REGISTRY_ABI = [
   "error NotAssignedVerifier()",
   "error InvalidVerifier()",
   "error InvalidStatus()",
+  "error InvalidPayout()",
+  "error PayoutExceedsClaim(uint256 approvedPayout, uint256 claimedAmount)",
+  "error InvalidServiceCharge()",
 ];
 
 /**
@@ -66,7 +73,10 @@ function decodeContractError(err, contract) {
   }
 }
 
-const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+// cacheTimeout -1: ethers otherwise reuses identical RPC answers for 250 ms,
+// so two relayer transactions sent back to back would get the same nonce
+// ("Nonce too low" on the local Hardhat node).
+const provider = new ethers.JsonRpcProvider(process.env.RPC_URL, undefined, { cacheTimeout: -1 });
 const relayerWallet = new ethers.Wallet(process.env.RELAYER_PRIVATE_KEY, provider);
 
 function getPolicyRegistry() {

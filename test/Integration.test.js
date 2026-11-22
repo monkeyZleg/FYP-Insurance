@@ -1,7 +1,7 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-const PolicyType = { Motor: 0, Medical: 1, Life: 2 };
+const PolicyType = { Car: 0, Motor: 1, Travel: 2, Health: 3 };
 const PaymentMode = { PayNow: 0, Instalment: 1, PayLater: 2 };
 const ClaimStatus = {
   Submitted: 0,
@@ -16,6 +16,7 @@ const REF_HASH = ethers.keccak256(ethers.toUtf8Bytes("payment-ref-integration"))
 const DETAILS_HASH = ethers.keccak256(ethers.toUtf8Bytes("claim-details-integration"));
 const REMARK_HASH = ethers.keccak256(ethers.toUtf8Bytes("remark-integration"));
 const PAYOUT_REF_HASH = ethers.keccak256(ethers.toUtf8Bytes("payout-ref-integration"));
+const PAYOUT = 710000; // RM 7,100.00 in sen
 const DOC_HASH = ethers.keccak256(ethers.toUtf8Bytes("integration-doc-1"));
 
 function parseLogs(contract, receipt) {
@@ -86,7 +87,7 @@ describe("Integration: full policy + claim lifecycle", function () {
 
     const submitTx = await claimRegistry
       .connect(relayer)
-      .submitClaim(HOLDER_ID, policyId, PolicyType.Motor, incidentDate, [DOC_HASH], DETAILS_HASH);
+      .submitClaim(HOLDER_ID, policyId, PolicyType.Motor, incidentDate, [DOC_HASH], DETAILS_HASH, 800000);
     const submitReceipt = await submitTx.wait();
     const submittedEvent = parseLogs(claimRegistry, submitReceipt).find(
       (e) => e.name === "ClaimSubmitted"
@@ -107,7 +108,7 @@ describe("Integration: full policy + claim lifecycle", function () {
     // -------------------- Approve --------------------
     const decideTx = await claimRegistry
       .connect(verifier)
-      .decideClaim(claimId, true, 0, REMARK_HASH);
+      .decideClaim(claimId, true, 0, REMARK_HASH, PAYOUT);
     const decideReceipt = await decideTx.wait();
     const decidedEvent = parseLogs(claimRegistry, decideReceipt).find(
       (e) => e.name === "ClaimDecided"
@@ -122,6 +123,9 @@ describe("Integration: full policy + claim lifecycle", function () {
       (e) => e.name === "ClaimSettled"
     );
     expect(settledEvent.args.payoutRefHash).to.equal(PAYOUT_REF_HASH);
+    expect(settledEvent.args.approvedPayout).to.equal(PAYOUT);
+    expect(settledEvent.args.serviceCharge).to.equal(14200); // 2% of RM 7,100
+    expect(settledEvent.args.netPayout).to.equal(695800);
 
     const finalClaim = await claimRegistry.getClaim(claimId);
     expect(finalClaim.status).to.equal(ClaimStatus.Settled);
@@ -173,6 +177,9 @@ describe("Integration: full policy + claim lifecycle", function () {
     history.push({
       type: "ClaimSettled",
       payoutRefHash: settledLogs[0].args.payoutRefHash,
+      approvedPayout: settledLogs[0].args.approvedPayout,
+      serviceCharge: settledLogs[0].args.serviceCharge,
+      netPayout: settledLogs[0].args.netPayout,
       blockNumber: settledLogs[0].blockNumber,
     });
 
@@ -188,6 +195,8 @@ describe("Integration: full policy + claim lifecycle", function () {
     expect(history[2].approve).to.equal(true);
     expect(history[2].verifier).to.equal(verifier.address);
     expect(history[3].payoutRefHash).to.equal(PAYOUT_REF_HASH);
+    // The money trail can be rebuilt from events alone too.
+    expect(history[3].approvedPayout - history[3].serviceCharge).to.equal(history[3].netPayout);
 
     // The on-chain claim record matches what the rebuilt history implies.
     expect(finalClaim.assignedVerifier).to.equal(verifier.address);

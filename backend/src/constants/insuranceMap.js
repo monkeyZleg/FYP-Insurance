@@ -1,11 +1,22 @@
-// Claims are filed under four insurance types (health/life/transportation/
-// flight); the policy module only covers three on-chain PolicyTypes
-// (motor/medical/life). Flight has no matching policy type and is never
-// submitted on-chain — see claimController.js.
+// Claims are filed under four insurance types (car/motor/travel/health) and
+// the on-chain PolicyType enum has the same four (PolicyRegistry.sol), so a
+// claim links to a policy of its own type and every claim type is recorded
+// on-chain — see claimController.js.
 const CLAIM_TO_POLICY_TYPE = {
-  health: "medical",
-  life: "life",
-  transportation: "motor",
+  car: "car",
+  motor: "motor",
+  travel: "travel",
+  health: "health",
 };
 
-module.exports = { CLAIM_TO_POLICY_TYPE };
+// Claim form field that states the amount claimed (RM) for each type. It is
+// sent on-chain as claimedAmount so the approved payout can never exceed it.
+// Optional on the car/motor/travel forms — a blank value is sent as 0.
+const CLAIM_AMOUNT_FIELD = {
+  car: "estimatedRepairCost",
+  motor: "estimatedRepairCost",
+  travel: "estimatedLoss",
+  health: "medicalBill",
+};
+
+module.exports = { CLAIM_TO_POLICY_TYPE, CLAIM_AMOUNT_FIELD };

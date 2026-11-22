@@ -1,4 +1,4 @@
-const supabase = require("../services/supabaseService");
+const db = require("../services/db");
 
 function rbac(...allowedRoles) {
   return async (req, res, next) => {
@@ -6,13 +6,9 @@ function rbac(...allowedRoles) {
     if (!wallet)
       return res.status(401).json({ error: "No wallet address provided" });
 
-    const { data, error } = await supabase
-      .from("users")
-      .select("id, role, full_name")
-      .eq("wallet_address", wallet)
-      .single();
+    const data = await db.one("SELECT id, role, full_name, is_active FROM users WHERE wallet_address = $1", [wallet]);
 
-    if (error || !data)
+    if (!data || data.is_active === false)
       return res.status(401).json({ error: "User not found" });
     if (!allowedRoles.includes(data.role))
       return res.status(403).json({ error: "Insufficient permissions" });

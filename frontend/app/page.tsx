@@ -347,13 +347,13 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                {i === 0 && (
+                {/* {i === 0 && (
                   <Mascot
                     id="roles-mascot"
                     mood="happy"
                     className="pointer-events-none absolute -bottom-8 -right-6 hidden h-44 w-44 opacity-90 transition-transform duration-700 ease-[cubic-bezier(0.1,0.9,0.2,1)] group-hover:-translate-y-2 group-hover:-rotate-6 lg:block"
                   />
-                )}
+                )} */}
               </article>
             ))}
           </div>

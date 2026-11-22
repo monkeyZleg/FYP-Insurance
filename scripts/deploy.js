@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const hre = require("hardhat");
 
 async function main() {
@@ -77,9 +79,49 @@ async function main() {
   console.log("Verifier (VERIFIER_ROLE on ClaimRegistry):       ", verifierSigner.address);
   console.log("Auditor (AUDITOR_ROLE on ClaimRegistry):         ", auditorSigner.address);
   console.log("======================================================");
+
+  const charge = await claimRegistry.serviceCharge();
   console.log(
-    "\nCopy the two contract addresses above into the backend/frontend env files."
+    `Service charge: ${Number(charge.rateBps) / 100}% of the approved payout, ` +
+      `min RM ${Number(charge.minFee) / 100}, max RM ${Number(charge.maxFee) / 100}`
   );
+
+  // ---------------------------------------------------------------
+  // 6. Save the addresses and print ready-to-paste env lines
+  // ---------------------------------------------------------------
+  const out = {
+    network: hre.network.name,
+    chainId: Number((await hre.ethers.provider.getNetwork()).chainId),
+    deployedAt: new Date().toISOString(),
+    PolicyRegistry: policyRegistryAddress,
+    ClaimRegistry: claimRegistryAddress,
+    accounts: {
+      deployer: deployer.address,
+      relayer: relayerAddress,
+      admin: adminSigner.address,
+      verifier: verifierSigner.address,
+      auditor: auditorSigner.address,
+    },
+  };
+  const dir = path.join(__dirname, "..", "deployments");
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${hre.network.name}.json`);
+  fs.writeFileSync(file, JSON.stringify(out, null, 2) + "\n");
+  console.log("\nSaved to", path.relative(process.cwd(), file));
+
+  console.log("\n--- backend/.env ---");
+  console.log(`POLICY_REGISTRY_ADDRESS=${policyRegistryAddress}`);
+  console.log(`CLAIM_REGISTRY_ADDRESS=${claimRegistryAddress}`);
+  console.log("\n--- frontend/.env.local ---");
+  console.log(`NEXT_PUBLIC_POLICY_REGISTRY_ADDRESS=${policyRegistryAddress}`);
+  console.log(`NEXT_PUBLIC_CLAIM_REGISTRY_ADDRESS=${claimRegistryAddress}`);
+
+  if (hre.network.name === "hardhat") {
+    console.warn(
+      "\nNOTE: the in-process 'hardhat' network disappears when this script ends. " +
+        "For the demo, run `npm run node` in one terminal and `npm run deploy:local` in another."
+    );
+  }
 }
 
 main().catch((error) => {

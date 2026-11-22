@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRightRegular, CheckmarkCircleFilled, EyeOffRegular, EyeRegular } from "@fluentui/react-icons";
-import { apiFetchAuth } from "@/lib/api";
+import { authApi } from "@/api";
 import Mascot from "@/components/mascot/Mascot";
 import AuthLayout from "@/components/landing/AuthLayout";
 import InfoBar from "@/components/ui/InfoBar";
@@ -39,17 +39,13 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    try {
-      await apiFetchAuth("/api/auth/policyholder/register", {
-        method: "POST",
-        body: JSON.stringify({ email, password, fullName }),
-      });
-      setDone(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
-    } finally {
-      setLoading(false);
+    const result = await authApi.registerPolicyholder(email, password, fullName);
+    setLoading(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
     }
+    setDone(true);
   }
 
   const pw = strength(password);

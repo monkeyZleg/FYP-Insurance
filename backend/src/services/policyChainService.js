@@ -33,8 +33,12 @@ const REASON_NAMES = [
   "POLICY_EXPIRED",
 ];
 
+// Claim forms send a calendar date (YYYY-MM-DD) with no time of day. Read it
+// as midnight Malaysia time so "today" is never in the future for a local
+// user, and so the same date always gives the same on-chain timestamp (the
+// duplicate-claim key depends on it).
 function toDateSeconds(dateStr) {
-  return Math.floor(new Date(dateStr).getTime() / 1000);
+  return Math.floor(new Date(`${String(dateStr).slice(0, 10)}T00:00:00+08:00`).getTime() / 1000);
 }
 
 function randomRefHash() {
@@ -92,22 +96,75 @@ async function getEffectiveStatus(onChainPolicyId) {
   return POLICY_STATUS_NAMES[Number(status)];
 }
 
-async function getPolicyDetails(onChainPolicyId) {
+const POLICY_TYPE_NAMES = Object.keys(POLICY_TYPE_ENUM); // index = on-chain enum value
+const PAYMENT_MODE_NAMES = Object.keys(PAYMENT_MODE_ENUM);
+
+// Dates shown to users are calendar dates in Malaysia time (UTC+8), the same
+// convention the claim form uses for incident dates.
+function toMyDate(seconds) {
+  return new Date((Number(seconds) + 8 * 3600) * 1000).toISOString().slice(0, 10);
+}
+
+/** One policy as the contract holds it, plus its status computed at read time. */
+async function getPolicyOnChain(onChainPolicyId) {
   const contract = getPolicyRegistryReadOnly();
-  const p = await contract.getPolicy(onChainPolicyId);
+  const [p, status] = await Promise.all([contract.getPolicy(onChainPolicyId), contract.effectiveStatus(onChainPolicyId)]);
   return {
+    onChainPolicyId: String(onChainPolicyId),
     holderId: p.holderId,
-    policyType: p.policyType,
+    policyType: POLICY_TYPE_NAMES[Number(p.policyType)],
     planId: Number(p.planId),
-    startDate: new Date(Number(p.startDate) * 1000).toISOString(),
-    endDate: new Date(Number(p.endDate) * 1000).toISOString(),
-    mode: Number(p.mode),
+    startDate: toMyDate(p.startDate),
+    endDate: toMyDate(p.endDate),
+    paymentMode: PAYMENT_MODE_NAMES[Number(p.mode)],
     totalInstalments: Number(p.totalInstalments),
     paidInstalments: Number(p.paidInstalments),
-    payDeadline: p.payDeadline > 0n ? new Date(Number(p.payDeadline) * 1000).toISOString() : null,
-    previousPolicyId: p.previousPolicyId.toString(),
+    payDeadline: p.payDeadline > 0n ? toMyDate(p.payDeadline) : null,
+    previousOnChainPolicyId: p.previousPolicyId > 0n ? p.previousPolicyId.toString() : null,
     premiumRM: Number(p.premium) / 100,
+    status: POLICY_STATUS_NAMES[Number(status)],
   };
+}
+
+async function getPoliciesOnChain(ids) {
+  return Promise.all(ids.map((id) => getPolicyOnChain(id)));
+}
+
+/**
+ * Transaction that created each policy, from PolicyCreated (new purchases) and
+ * PolicyRenewed (renewals) events. Returns Map(policyId -> txHash).
+ */
+async function getPolicyCreateTxHashes(ids) {
+  const contract = getPolicyRegistryReadOnly();
+  const wanted = ids && ids.length ? ids : null;
+  const [created, renewed] = await Promise.all([
+    contract.queryFilter(contract.filters.PolicyCreated(wanted)),
+    contract.queryFilter(contract.filters.PolicyRenewed(null, wanted)),
+  ]);
+  const map = new Map();
+  for (const e of created) map.set(e.args.policyId.toString(), e.transactionHash);
+  for (const e of renewed) map.set(e.args.newPolicyId.toString(), e.transactionHash);
+  return map;
+}
+
+/** Every payment recorded for a policy, read from PaymentRecorded events, oldest first. */
+async function getPaymentHistory(onChainPolicyId) {
+  const contract = getPolicyRegistryReadOnly();
+  const events = await contract.queryFilter(contract.filters.PaymentRecorded(onChainPolicyId));
+  const withTime = await Promise.all(
+    events.map(async (e) => {
+      const block = await e.getBlock();
+      return {
+        instalmentNumber: Number(e.args.instalmentNumber),
+        amountRM: Number(e.args.amount) / 100,
+        refHash: e.args.refHash,
+        txHash: e.transactionHash,
+        blockNumber: e.blockNumber,
+        paidAt: new Date(block.timestamp * 1000).toISOString(),
+      };
+    })
+  );
+  return withTime.sort((a, b) => a.blockNumber - b.blockNumber);
 }
 
 async function checkEligibility(onChainPolicyId, holderId, insurancePolicyType, incidentDate) {
@@ -126,7 +183,10 @@ module.exports = {
   recordPaymentOnChain,
   renewPolicyOnChain,
   getEffectiveStatus,
-  getPolicyDetails,
+  getPolicyOnChain,
+  getPoliciesOnChain,
+  getPolicyCreateTxHashes,
+  getPaymentHistory,
   checkEligibility,
   POLICY_STATUS_NAMES,
   REASON_NAMES,

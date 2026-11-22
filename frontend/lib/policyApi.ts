@@ -5,6 +5,7 @@ import type {
   InsuranceType,
   InstalmentItem,
   PaymentMode,
+  PolicyPayment,
   PolicyPlan,
   PolicyRow,
 } from "@/types";
@@ -33,6 +34,12 @@ export async function createPolicy(
     },
     token
   );
+}
+
+/** Every payment recorded for the policy on-chain (PaymentRecorded events), oldest first. */
+export async function policyPayments(token: string, policyId: string): Promise<PolicyPayment[]> {
+  const data = await apiFetchAuth(`/api/policies/${policyId}/payments`, {}, token);
+  return data.payments || [];
 }
 
 export async function payPolicy(

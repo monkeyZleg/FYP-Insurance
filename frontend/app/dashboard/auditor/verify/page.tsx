@@ -23,6 +23,7 @@ export default function HashIntegrityCheckerPage() {
     offChainHash: string;
     onChainHash: string;
     match: boolean;
+    documentsMatch: boolean;
     recordedAt: string;
   } | null>(null);
 
@@ -33,21 +34,17 @@ export default function HashIntegrityCheckerPage() {
     setError("");
     setResult(null);
     try {
+      // The server recomputes the hash of the stored form details and files and
+      // compares them with the hashes the contract recorded at submission.
       const { claim } = await apiFetch(`/api/claims/${claimId.trim()}`, {}, wallet);
-      if (!claim.on_chain_claim_id) throw new Error("This claim has not been recorded on-chain yet.");
-
-      const onChain = await apiFetch(`/api/blockchain/claim/${claim.on_chain_claim_id}`, {}, wallet);
-      const verify = await apiFetch(
-        `/api/blockchain/verify/${claim.on_chain_claim_id}?hash=${claim.details_hash}`,
-        {},
-        wallet
-      );
+      if (!claim.on_chain_claim_id || !claim.integrity) throw new Error("This claim has not been recorded on-chain yet.");
 
       setResult({
-        offChainHash: claim.details_hash,
-        onChainHash: onChain.detailsHash,
-        match: verify.isValid,
-        recordedAt: new Date(onChain.submittedAt * 1000).toLocaleString(),
+        offChainHash: claim.integrity.offChainDetailsHash,
+        onChainHash: claim.integrity.onChainDetailsHash,
+        match: claim.integrity.detailsMatch && claim.integrity.documentsMatch,
+        documentsMatch: claim.integrity.documentsMatch,
+        recordedAt: new Date(claim.submitted_at).toLocaleString(),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed");
@@ -106,13 +103,17 @@ export default function HashIntegrityCheckerPage() {
             <div>
               <p className="t-subtitle text-fg">{result.match ? "Match" : "Mismatch"}</p>
               <p className="t-body text-fg-2">
-                {result.match ? "Document has not been tampered with." : "Hash discrepancy detected — flag for investigation."}
+                {result.match
+                  ? "The stored details and files match what was recorded on-chain."
+                  : result.documentsMatch
+                    ? "The stored claim details differ from the on-chain hash — flag for investigation."
+                    : "The stored files differ from the on-chain hashes — flag for investigation."}
               </p>
             </div>
           </div>
           <div className="space-y-5 p-5 sm:p-6">
-            <HashRow icon={DatabaseRegular} label="Off-chain hash (Supabase)" hash={result.offChainHash} other={result.onChainHash} />
-            <HashRow icon={CubeRegular} label="On-chain hash (smart contract)" hash={result.onChainHash} other={result.offChainHash} />
+            <HashRow icon={DatabaseRegular} label="Stored details, re-hashed now (database)" hash={result.offChainHash} other={result.onChainHash} />
+            <HashRow icon={CubeRegular} label="Hash recorded on-chain at submission" hash={result.onChainHash} other={result.offChainHash} />
             <div className="flex flex-wrap justify-between gap-2 border-t border-[var(--divider-stroke)] pt-4 t-body">
               <span className="text-fg-2">Recorded on-chain at</span>
               <span className="text-fg tabular-nums">{result.recordedAt}</span>

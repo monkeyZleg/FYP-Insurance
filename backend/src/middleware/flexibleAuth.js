@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const supabase = require("../services/supabaseService");
+const db = require("../services/db");
 
 /**
  * Accepts either a policyholder Bearer JWT (email/password login) or a
@@ -27,13 +27,9 @@ function flexibleAuth(...allowedRoles) {
     const wallet = req.headers["x-wallet-address"]?.toLowerCase();
     if (!wallet) return res.status(401).json({ error: "No credentials provided" });
 
-    const { data, error } = await supabase
-      .from("users")
-      .select("id, role, full_name")
-      .eq("wallet_address", wallet)
-      .single();
+    const data = await db.one("SELECT id, role, full_name, is_active FROM users WHERE wallet_address = $1", [wallet]);
 
-    if (error || !data) return res.status(401).json({ error: "User not found" });
+    if (!data || data.is_active === false) return res.status(401).json({ error: "User not found" });
     if (allowedRoles.length && !allowedRoles.includes(data.role)) {
       return res.status(403).json({ error: "Insufficient permissions" });
     }

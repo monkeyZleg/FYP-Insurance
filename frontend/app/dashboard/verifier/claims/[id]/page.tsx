@@ -28,12 +28,14 @@ export default function VerifierReviewPage() {
   const router = useRouter();
   const claimId = params.id as string;
   const { wallet, userId } = useRole();
-  const { decideClaim } = useClaimRegistry();
+  const { decideClaim, quoteServiceCharge } = useClaimRegistry();
 
   const [claim, setClaim] = useState<Claim | null>(null);
   const [documents, setDocuments] = useState<ClaimDocument[]>([]);
   const [history, setHistory] = useState<Claim[]>([]);
   const [remark, setRemark] = useState("");
+  const [payout, setPayout] = useState("");
+  const [quote, setQuote] = useState<{ payout: number; serviceCharge: number; net: number } | null>(null);
   const [pendingDecision, setPendingDecision] = useState<"Approved" | "Rejected" | null>(null);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
@@ -55,11 +57,35 @@ export default function VerifierReviewPage() {
       .catch(() => setHistory([]));
   }, [claimId, wallet, userId]);
 
-  // Hash integrity is verified against files as recorded; re-hashing isn't possible without
-  // re-downloading files, so presence of the stored details hash is used as the check.
-  const hashCheck = documents.length > 0 && claim?.details_hash ? Boolean(claim.details_hash) : null;
+  // Integrity: the server re-hashes the stored form details and files and compares
+  // them with the hashes the contract recorded at submission.
+  const hashCheck = claim?.integrity ? claim.integrity.detailsMatch && claim.integrity.documentsMatch : null;
 
   const config = useMemo(() => getInsuranceConfig(claim?.insurance_type), [claim?.insurance_type]);
+
+  // Approved payout: required to approve, and the contract refuses anything above the amount claimed.
+  const claimed = claim?.claimed_amount ?? null;
+  const payoutNum = Number(payout);
+  const payoutOk = payout.trim() !== "" && Number.isFinite(payoutNum) && payoutNum > 0 && (claimed === null || payoutNum <= claimed);
+
+  // Ask the contract what service charge it would apply, so the verifier sees the real on-chain figures.
+  useEffect(() => {
+    if (!payoutOk) return;
+    let stale = false;
+    const timer = setTimeout(() => {
+      quoteServiceCharge(payoutNum)
+        .then((q) => {
+          if (!stale) setQuote({ payout: payoutNum, ...q });
+        })
+        .catch(() => {});
+    }, 300);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payoutNum, payoutOk]);
+  const shownQuote = payoutOk && quote?.payout === payoutNum ? quote : null;
 
   async function confirmDecision() {
     if (!claim || !pendingDecision) return;
@@ -67,22 +93,34 @@ export default function VerifierReviewPage() {
       setError("Remarks must be at least 20 characters.");
       return;
     }
+    if (pendingDecision === "Approved" && !payoutOk) {
+      setError(claimed !== null && payoutNum > claimed ? "The approved payout can't exceed the amount claimed." : "Enter the approved payout before approving.");
+      setPendingDecision(null);
+      return;
+    }
     setProcessing(true);
     setError("");
     try {
       if (!claim.on_chain_claim_id) throw new Error("This claim has not been recorded on-chain yet.");
-      const { receipt } = await decideClaim(
+      // The decision, payout and a hash of the remark are recorded on-chain;
+      // the claim's status is read back from the chain, not saved in the database.
+      await decideClaim(
         claim.on_chain_claim_id,
         pendingDecision === "Approved",
         0,
-        remark
+        remark,
+        pendingDecision === "Approved" ? payoutNum : 0
       );
-      const txHash = receipt?.hash || receipt?.transactionHash || "";
-      await apiFetch(
-        `/api/claims/${claim.id}/status`,
-        { method: "PATCH", body: JSON.stringify({ status: pendingDecision, remark, txHash }) },
-        wallet
-      );
+      // Only the remark text needs the database (the chain keeps its hash). The
+      // server stores it only if it matches that on-chain hash.
+      try {
+        await apiFetch(`/api/claims/${claim.id}/remark`, { method: "PATCH", body: JSON.stringify({ remark }) }, wallet);
+      } catch (err) {
+        setError(
+          `Your decision is recorded on-chain, but the remark text could not be saved: ${err instanceof Error ? err.message : "unknown error"}`
+        );
+        return;
+      }
       router.push("/dashboard/verifier");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to record decision");
@@ -139,6 +177,7 @@ export default function VerifierReviewPage() {
               <Row label="Claim type" value={claim.claim_type} />
               <Row label="Incident date" value={claim.incident_date} />
               <Row label="Description" value={claim.description} />
+              {claimed !== null && <Row label="Amount claimed" value={rm(claimed)} />}
               {config &&
                 config.fields
                   .filter((f) => !["policyNumber", "date", "description", "claimType"].includes(f.role || ""))
@@ -205,6 +244,29 @@ export default function VerifierReviewPage() {
               </p>
             </div>
             <div className="p-5">
+              <label htmlFor="payout" className="field-label">
+                Approved payout (RM)
+              </label>
+              <input
+                id="payout"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                value={payout}
+                onChange={(e) => setPayout(e.target.value)}
+                placeholder={claimed !== null ? `Up to ${rm(claimed)}` : "0.00"}
+                className="textbox"
+                aria-invalid={payout.trim() !== "" && !payoutOk}
+                aria-describedby="payout-hint"
+              />
+              <p id="payout-hint" className="field-hint mb-4">
+                {claimed !== null && payoutNum > claimed
+                  ? `Can't exceed the amount claimed (${rm(claimed)}).`
+                  : shownQuote
+                    ? `Service charge ${rm(shownQuote.serviceCharge)} · policyholder receives ${rm(shownQuote.net)}. Fixed on-chain at settlement.`
+                    : `Needed to approve; leave blank when rejecting.${claimed !== null ? ` Amount claimed: ${rm(claimed)}.` : ""}`}
+              </p>
               <label htmlFor="remark" className="field-label">
                 Review remarks
               </label>
@@ -233,7 +295,7 @@ export default function VerifierReviewPage() {
                 </InfoBar>
               )}
               <div className="mt-5 grid grid-cols-2 gap-2">
-                <button onClick={() => setPendingDecision("Approved")} disabled={!remarkOk} className="btn btn-success btn-lg">
+                <button onClick={() => setPendingDecision("Approved")} disabled={!remarkOk || !payoutOk} className="btn btn-success btn-lg">
                   <CheckmarkRegular /> Approve
                 </button>
                 <button onClick={() => setPendingDecision("Rejected")} disabled={!remarkOk} className="btn btn-danger btn-lg">
@@ -248,7 +310,7 @@ export default function VerifierReviewPage() {
       {pendingDecision && (
         <ConfirmModal
           title={`${pendingDecision === "Approved" ? "Approve" : "Reject"} this claim?`}
-          message="This action is irreversible and will be recorded on the blockchain via your connected wallet."
+          message={`${pendingDecision === "Approved" ? `Approved payout: ${rm(payoutNum)}. ` : ""}This action is irreversible and will be recorded on the blockchain via your connected wallet.`}
           confirmLabel={pendingDecision === "Approved" ? "Approve" : "Reject"}
           danger={pendingDecision === "Rejected"}
           loading={processing}
@@ -259,6 +321,8 @@ export default function VerifierReviewPage() {
     </div>
   );
 }
+
+const rm = (n: number) => `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function Row({ label, value }: { label: string; value: string }) {
   return (

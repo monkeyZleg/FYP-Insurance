@@ -2,9 +2,9 @@ const { ethers } = require("ethers");
 
 /**
  * holderId = keccak256(abi.encodePacked(userUuid, serverSecretSalt))
- * per smart-contract-spec-hybrid.md Section 1. The policyholder's Supabase
- * Auth user id (already a random UUID) is used as userUuid directly — no
- * separate UUID needs to be generated or stored. Never hash an IC number
+ * per smart-contract-spec-hybrid.md Section 1. The policyholder's account
+ * id (users.id, a random UUID) is used as userUuid, so nothing extra needs
+ * to be generated or stored. Never hash an IC number
  * or email: those are guessable and reversible by brute force.
  */
 function deriveHolderId(userUuid) {

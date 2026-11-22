@@ -1,6 +1,6 @@
 export type UserRole = "policyholder" | "verifier" | "admin" | "auditor";
 
-export type InsuranceType = "health" | "life" | "transportation" | "flight";
+export type InsuranceType = "car" | "motor" | "travel" | "health";
 
 export interface User {
   id: string;
@@ -29,23 +29,34 @@ export interface Claim {
   details: Record<string, string | number>;
   details_hash: string | null;
   doc_hashes: string[];
+  // Everything below "status" is read live from the blockchain (ClaimRegistry); only
+  // the case file (form details, files, remark text) comes from the database.
+  // Money figures are in RM and null until that step has happened on-chain.
+  claimed_amount?: number | null;
+  approved_payout?: number | null;
+  service_charge?: number | null;
+  net_payout?: number | null;
   status: ClaimStatus;
   assigned_verifier_id: string | null;
-  assign_tx_hash: string | null;
-  decided_by_wallet: string | null;
-  decide_tx_hash: string | null;
   decided_at: string | null;
   verifier_remark: string | null;
   reason_code: number | null;
-  settle_tx_hash: string | null;
-  settled_at: string | null;
   flagged: boolean;
-  flag_tx_hash: string | null;
   document_hash: string | null;
   submitted_at: string;
-  last_updated_at: string;
+  // Present only on GET /api/claims/:id — stored details and files re-hashed and compared with the chain.
+  integrity?: ClaimIntegrity;
   policyholder?: { full_name: string; email: string };
   verifier?: { full_name: string; wallet_address: string };
+}
+
+export interface ClaimIntegrity {
+  detailsMatch: boolean;
+  documentsMatch: boolean;
+  offChainDetailsHash: string;
+  onChainDetailsHash: string;
+  documentCount: number;
+  onChainDocumentCount: number;
 }
 
 export interface Document {
@@ -67,7 +78,9 @@ export interface AuditEvent {
 
 /* ---- Policyholder Policy Module (buy / renew / pay, backed by the real API) ---- */
 
-export type PolicyPlanType = "motor" | "medical" | "life";
+// Same four types as InsuranceType and the on-chain PolicyType enum
+// (Car = 0, Motor = 1, Travel = 2, Health = 3; Motor = motorcycle).
+export type PolicyPlanType = "car" | "motor" | "travel" | "health";
 
 export type PaymentMode = "PayNow" | "Instalment" | "PayLater";
 
@@ -108,7 +121,15 @@ export interface PolicyRow {
   previous_policy_id: string | null;
   create_tx_hash: string | null;
   created_at: string;
-  last_synced_at: string;
+}
+
+export interface PolicyPayment {
+  instalmentNumber: number;
+  amountRM: number;
+  refHash: string;
+  txHash: string;
+  blockNumber: number;
+  paidAt: string;
 }
 
 export type ClaimEligibilityReason =

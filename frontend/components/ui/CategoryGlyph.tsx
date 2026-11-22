@@ -13,15 +13,13 @@ import {
 import type { InsuranceType, PolicyPlanType } from "@/types";
 
 // The public quote pages sell four products, which don't line up one-to-one with the claim types.
-type Category = InsuranceType | PolicyPlanType | "car" | "motorcycle" | "travel";
+type Category = InsuranceType | PolicyPlanType | "medical" | "life" | "motorcycle";
 
 const MAP: Record<Category, { tint: string; Filled: typeof AirplaneFilled; Regular: typeof AirplaneRegular }> = {
   health: { tint: "var(--cat-health)", Filled: HeartPulseFilled, Regular: HeartPulseRegular },
   medical: { tint: "var(--cat-health)", Filled: HeartPulseFilled, Regular: HeartPulseRegular },
   life: { tint: "var(--cat-life)", Filled: PersonHeartFilled, Regular: PersonHeartRegular },
-  transportation: { tint: "var(--cat-transport)", Filled: VehicleCarFilled, Regular: VehicleCarRegular },
-  motor: { tint: "var(--cat-transport)", Filled: VehicleCarFilled, Regular: VehicleCarRegular },
-  flight: { tint: "var(--cat-flight)", Filled: AirplaneFilled, Regular: AirplaneRegular },
+  motor: { tint: "var(--cat-transport)", Filled: VehicleMotorcycleFilled, Regular: VehicleMotorcycleRegular },
   car: { tint: "var(--cat-transport)", Filled: VehicleCarFilled, Regular: VehicleCarRegular },
   motorcycle: { tint: "var(--cat-transport)", Filled: VehicleMotorcycleFilled, Regular: VehicleMotorcycleRegular },
   travel: { tint: "var(--cat-flight)", Filled: AirplaneFilled, Regular: AirplaneRegular },

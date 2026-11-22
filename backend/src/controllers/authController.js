@@ -1,8 +1,24 @@
-const supabase = require("../services/supabaseService");
+const crypto = require("crypto");
+const { promisify } = require("util");
+const db = require("../services/db");
 const jwt = require("jsonwebtoken");
 const { deriveHolderId } = require("../services/holderIdService");
 
 const STAFF_ROLES = ["verifier", "admin", "auditor"];
+const scrypt = promisify(crypto.scrypt);
+
+/** Policyholder passwords are stored as "salt:hash" (scrypt, built into Node). */
+async function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  return `${salt}:${(await scrypt(password, salt, 64)).toString("hex")}`;
+}
+
+async function checkPassword(password, stored) {
+  const [salt, hash] = String(stored || "").split(":");
+  if (!salt || !hash) return false;
+  const actual = await scrypt(password, salt, 64);
+  return crypto.timingSafeEqual(actual, Buffer.from(hash, "hex"));
+}
 
 /* ---- Staff (MetaMask wallet) login/register — unchanged model ---- */
 
@@ -11,13 +27,9 @@ async function login(req, res) {
   if (!walletAddress)
     return res.status(400).json({ error: "Wallet address required" });
 
-  const { data: user, error } = await supabase
-    .from("users")
-    .select("*")
-    .eq("wallet_address", walletAddress.toLowerCase())
-    .single();
+  const user = await db.one("SELECT * FROM users WHERE wallet_address = $1", [walletAddress.toLowerCase()]);
 
-  if (error || !user)
+  if (!user)
     return res
       .status(404)
       .json({ error: "Wallet not registered in the system" });
@@ -50,26 +62,21 @@ async function register(req, res) {
       .status(400)
       .json({ error: "This endpoint registers staff only (verifier, admin, auditor) — policyholders self-register with email and password" });
 
-  const { data, error } = await supabase
-    .from("users")
-    .insert({
-      wallet_address: walletAddress.toLowerCase(),
-      full_name: fullName,
-      email,
-      role,
-    })
-    .select()
-    .single();
-
-  if (error)
-    return res
-      .status(400)
-      .json({ error: error.message || "Failed to register user" });
-
-  res.status(201).json({ user: data });
+  try {
+    const data = await db.one(
+      `INSERT INTO users (wallet_address, full_name, email, role) VALUES ($1, $2, $3, $4)
+       RETURNING id, wallet_address, full_name, email, role, is_active, created_at`,
+      [walletAddress.toLowerCase(), fullName, email, role]
+    );
+    res.status(201).json({ user: data });
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Failed to register user" });
+  }
 }
 
-/* ---- Policyholder (email + password, Supabase Auth) — hybrid signing model ---- */
+/* ---- Policyholder (email + password) — hybrid signing model ---- */
+
+const PROFILE_COLUMNS = "id, holder_id, full_name, email, role, is_active, created_at";
 
 async function registerPolicyholder(req, res) {
   const { email, password, fullName } = req.body;
@@ -78,37 +85,19 @@ async function registerPolicyholder(req, res) {
   if (password.length < 8)
     return res.status(400).json({ error: "Password must be at least 8 characters" });
 
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-
-  if (authError)
-    return res.status(400).json({ error: authError.message || "Failed to create account" });
-
-  const authUserId = authData.user.id;
-  const holderId = deriveHolderId(authUserId);
-
-  const { data: profile, error: profileError } = await supabase
-    .from("users")
-    .insert({
-      auth_user_id: authUserId,
-      holder_id: holderId,
-      full_name: fullName,
-      email,
-      role: "policyholder",
-    })
-    .select()
-    .single();
-
-  if (profileError) {
-    // Roll back the auth user so a failed registration doesn't leave an orphaned login.
-    await supabase.auth.admin.deleteUser(authUserId).catch(() => {});
-    return res.status(400).json({ error: profileError.message || "Failed to create profile" });
+  // The account id is made here so the holderId can be derived from it in the same insert.
+  const id = crypto.randomUUID();
+  try {
+    const profile = await db.one(
+      `INSERT INTO users (id, holder_id, password_hash, full_name, email, role)
+       VALUES ($1, $2, $3, $4, $5, 'policyholder') RETURNING ${PROFILE_COLUMNS}`,
+      [id, deriveHolderId(id), await hashPassword(password), fullName, email.toLowerCase()]
+    );
+    res.status(201).json({ user: profile });
+  } catch (err) {
+    if (err.code === "23505") return res.status(400).json({ error: "An account with this email already exists" });
+    res.status(400).json({ error: err.message || "Failed to create account" });
   }
-
-  res.status(201).json({ user: profile });
 }
 
 async function loginPolicyholder(req, res) {
@@ -116,18 +105,9 @@ async function loginPolicyholder(req, res) {
   if (!email || !password)
     return res.status(400).json({ error: "email and password are required" });
 
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-  if (authError || !authData?.user)
+  const profile = await db.one("SELECT * FROM users WHERE email = $1 AND role = 'policyholder'", [email.toLowerCase()]);
+  if (!profile || !(await checkPassword(password, profile.password_hash)))
     return res.status(401).json({ error: "Invalid email or password" });
-
-  const { data: profile, error: profileError } = await supabase
-    .from("users")
-    .select("*")
-    .eq("auth_user_id", authData.user.id)
-    .single();
-
-  if (profileError || !profile)
-    return res.status(404).json({ error: "No policyholder profile found for this account" });
 
   if (profile.is_active === false)
     return res.status(403).json({ error: "This account has been deactivated" });
@@ -144,14 +124,14 @@ async function loginPolicyholder(req, res) {
 /* ---- Admin: user management (both staff and policyholders) ---- */
 
 async function getUsers(req, res) {
-  const { data: users, error } = await supabase
-    .from("users")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) return res.status(500).json({ error: error.message });
-
-  res.json({ users });
+  try {
+    const users = await db.query(
+      "SELECT id, wallet_address, holder_id, full_name, email, role, is_active, created_at FROM users ORDER BY created_at DESC"
+    );
+    res.json({ users });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 }
 
 async function updateUser(req, res) {
@@ -164,7 +144,7 @@ async function updateUser(req, res) {
     if (!validRoles.includes(role))
       return res.status(400).json({ error: "Invalid role" });
 
-    const { data: existing } = await supabase.from("users").select("role").eq("id", id).single();
+    const existing = await db.one("SELECT role FROM users WHERE id = $1", [id]);
     const crossesBoundary =
       existing && ((existing.role === "policyholder") !== (role === "policyholder"));
     if (crossesBoundary)
@@ -176,16 +156,17 @@ async function updateUser(req, res) {
   }
   if (isActive !== undefined) updates.is_active = isActive;
 
-  const { data, error } = await supabase
-    .from("users")
-    .update(updates)
-    .eq("id", id)
-    .select()
-    .single();
-
-  if (error) return res.status(500).json({ error: error.message });
-
-  res.json({ user: data });
+  try {
+    const data = await db.one(
+      `UPDATE users SET role = COALESCE($2, role), is_active = COALESCE($3, is_active) WHERE id = $1
+       RETURNING id, wallet_address, holder_id, full_name, email, role, is_active, created_at`,
+      [id, updates.role ?? null, updates.is_active ?? null]
+    );
+    if (!data) return res.status(404).json({ error: "User not found" });
+    res.json({ user: data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 }
 
 module.exports = {

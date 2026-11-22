@@ -7,6 +7,7 @@ const {
   recordPayment,
   renewPolicy,
   getMyPolicies,
+  getPayments,
   getEligibility,
 } = require("../controllers/policyController");
 
@@ -15,6 +16,7 @@ router.get("/my", policyholderAuth, getMyPolicies);
 router.post("/", policyholderAuth, createPolicy);
 router.post("/:id/pay", policyholderAuth, recordPayment);
 router.post("/:id/renew", policyholderAuth, renewPolicy);
+router.get("/:id/payments", policyholderAuth, getPayments);
 router.get("/:id/eligibility", policyholderAuth, getEligibility);
 
 module.exports = router;

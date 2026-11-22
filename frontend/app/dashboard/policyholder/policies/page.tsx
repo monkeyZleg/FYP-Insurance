@@ -12,14 +12,14 @@ import {
   WarningFilled,
 } from "@fluentui/react-icons";
 import { useRole } from "@/hooks/useRole";
-import { buildInstalmentSchedule, canRenew, myPolicies } from "@/lib/policyApi";
+import { buildInstalmentSchedule, canRenew, myPolicies, policyPayments } from "@/lib/policyApi";
 import { POLICY_TYPE_CONFIG } from "@/constants/policyPlans";
 import PolicyStatusBadge from "@/components/policy/PolicyStatusBadge";
 import HashDisplay from "@/components/blockchain/HashDisplay";
 import CategoryGlyph from "@/components/ui/CategoryGlyph";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
-import type { PolicyRow } from "@/types";
+import type { PolicyPayment, PolicyRow } from "@/types";
 
 function coverageProgress(p: PolicyRow) {
   const start = new Date(p.start_date).getTime();
@@ -33,6 +33,15 @@ export default function MyPoliciesPage() {
   const [policies, setPolicies] = useState<PolicyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [payments, setPayments] = useState<Record<string, PolicyPayment[]>>({});
+
+  // Payment history is read from the blockchain when a policy is opened.
+  useEffect(() => {
+    if (!token || !expanded || payments[expanded]) return;
+    policyPayments(token, expanded)
+      .then((list) => setPayments((prev) => ({ ...prev, [expanded]: list })))
+      .catch(() => {});
+  }, [expanded, token, payments]);
 
   useEffect(() => {
     if (!token) return;
@@ -165,7 +174,22 @@ export default function MyPoliciesPage() {
                   <div className="overflow-hidden">
                     <div className="grid gap-6 border-t border-[var(--divider-stroke)] bg-[var(--card-fill-secondary)] p-5 md:grid-cols-2">
                       <div>
-                        <p className="mb-2 t-caption font-semibold text-fg-2">Payment schedule (approximate)</p>
+                        <p className="mb-2 t-caption font-semibold text-fg-2">Payments recorded on-chain</p>
+                        {(payments[p.id] || []).length > 0 ? (
+                          <ul className="mb-4 space-y-1.5">
+                            {payments[p.id].map((pay) => (
+                              <li key={pay.txHash} className="flex flex-wrap items-center gap-x-3 t-body tabular-nums">
+                                <CheckmarkCircleFilled fontSize={16} className="text-[var(--success)]" aria-hidden />
+                                <span className="text-fg">RM {pay.amountRM.toLocaleString("en-MY", { minimumFractionDigits: 2 })}</span>
+                                <span className="text-fg-2">{new Date(pay.paidAt).toLocaleDateString()}</span>
+                                <span className="ml-auto"><HashDisplay hash={pay.txHash} /></span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mb-4 t-body text-fg-3">{payments[p.id] ? "No payment recorded yet." : "Loading…"}</p>
+                        )}
+                        <p className="mb-2 t-caption font-semibold text-fg-2">Instalment schedule (approximate)</p>
                         {instalments.length > 0 ? (
                           <ol className="space-y-1.5">
                             {instalments.map((i) => (

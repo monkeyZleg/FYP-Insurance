@@ -10,6 +10,8 @@ import { CLAIM_TO_POLICY_TYPE } from "@/constants/policyPlans";
 import type { InsuranceType, PolicyRow } from "@/types";
 import InsuranceTypeCard from "@/components/insurance/InsuranceTypeCard";
 import DocumentUploader, { type UploadedFile } from "@/components/documents/DocumentUploader";
+import ClaimChecklist from "@/components/claims/ClaimChecklist";
+import type { ClaimKind } from "@/constants/claimCalculator";
 import BlockchainNote from "@/components/blockchain/BlockchainNote";
 import HashDisplay from "@/components/blockchain/HashDisplay";
 import CategoryGlyph from "@/components/ui/CategoryGlyph";
@@ -25,6 +27,11 @@ import {
 } from "@fluentui/react-icons";
 
 const STEPS = ["Type", "Details", "Documents", "Review"];
+
+// Claim types that have a checklist and out-of-pocket calculator. Travel claims have none yet.
+const CHECKLIST_KIND: Partial<Record<InsuranceType, ClaimKind>> = { car: "motor", motor: "motor", health: "medical" };
+// Same fields the backend sends on-chain as the claimed amount (backend/src/constants/insuranceMap.js).
+const AMOUNT_KEY: Record<string, string> = { car: "estimatedRepairCost", motor: "estimatedRepairCost", travel: "estimatedLoss", health: "medicalBill" };
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -45,12 +52,14 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
   const [rejectReason, setRejectReason] = useState<{ reasonCode: string; message: string } | null>(null);
   const [txHash, setTxHash] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checklistReady, setChecklistReady] = useState(false);
 
   const config: InsuranceConfig | undefined = INSURANCE_TYPES.find((t) => t.id === insuranceType);
   const policyNumberField = config?.fields.find((f) => f.role === "policyNumber");
   const dateFieldConfig = config?.fields.find((f) => f.role === "date");
   const descriptionField = config?.fields.find((f) => f.role === "description");
   const claimTypeField = config?.fields.find((f) => f.role === "claimType");
+  const checklistKind = insuranceType ? CHECKLIST_KIND[insuranceType] : undefined;
   const linksToPolicyModule = insuranceType ? Boolean(CLAIM_TO_POLICY_TYPE[insuranceType]) : false;
 
   useEffect(() => {
@@ -324,6 +333,17 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
                 )}
               </dl>
 
+              {checklistKind && insuranceType && (
+                <div className="mt-6">
+                  <ClaimChecklist
+                    kind={checklistKind}
+                    incidentDate={dateFieldConfig ? values[dateFieldConfig.key] || "" : ""}
+                    claimed={values[AMOUNT_KEY[insuranceType]] ?? ""}
+                    onChange={(c) => setChecklistReady(c.ready)}
+                  />
+                </div>
+              )}
+
               <div className="mt-5">
                 <BlockchainNote text="Your claim will be recorded off-chain and, for policy-linked claim types, verified for eligibility and recorded on the blockchain by the platform's relayer wallet on your behalf." />
               </div>
@@ -348,7 +368,7 @@ export default function ClaimForm({ onSubmitted }: { onSubmitted?: () => void })
                 <button onClick={() => setStep(3)} disabled={loading} className="btn">
                   <ArrowLeftRegular /> Back
                 </button>
-                <button onClick={handleSubmit} disabled={loading || !token} className="btn btn-accent btn-lg">
+                <button onClick={handleSubmit} disabled={loading || !token || (!!checklistKind && !checklistReady)} className="btn btn-accent btn-lg">
                   {loading ? <Spinner /> : <SendRegular />}
                   {loading ? "Submitting…" : "Submit claim"}
                 </button>

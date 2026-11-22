@@ -53,13 +53,8 @@ export default function AssignClaimsPage() {
     const verifier = verifiers.find((v) => v.id === verifierId);
     if (!verifier || !verifier.wallet_address) throw new Error("Verifier wallet address not found");
     if (!claim.on_chain_claim_id) throw new Error("This claim has not been recorded on-chain yet.");
-    const receipt = await assignVerifier(claim.on_chain_claim_id, verifier.wallet_address);
-    const txHash = receipt?.hash || receipt?.transactionHash || "";
-    await apiFetch(
-      `/api/claims/${claim.id}/assign`,
-      { method: "PATCH", body: JSON.stringify({ verifierId, txHash }) },
-      wallet
-    );
+    // Signed with the admin's wallet; the claim's status and verifier are read back from the chain.
+    await assignVerifier(claim.on_chain_claim_id, verifier.wallet_address);
   }
 
   async function handleAssign() {
@@ -103,13 +98,8 @@ export default function AssignClaimsPage() {
     setError("");
     try {
       if (!claim.on_chain_claim_id) throw new Error("This claim has not been recorded on-chain yet.");
-      const { receipt, payoutRefHash } = await settleClaim(claim.on_chain_claim_id);
-      const txHash = receipt?.hash || receipt?.transactionHash || "";
-      await apiFetch(
-        `/api/claims/${claim.id}/settle`,
-        { method: "PATCH", body: JSON.stringify({ txHash, payoutRefHash }) },
-        wallet
-      );
+      // The contract computes the service charge and net payout and records them on-chain.
+      await settleClaim(claim.on_chain_claim_id);
       await loadClaims();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Settlement failed");
@@ -129,7 +119,7 @@ export default function AssignClaimsPage() {
         description={
           view === "assign"
             ? "Route new claims to a verifier. Each assignment is a transaction from your wallet."
-            : "Record the payout for approved claims on-chain."
+            : "Settle approved claims. The contract works out the service charge and net payout and records them on-chain."
         }
       />
 
@@ -261,6 +251,7 @@ export default function AssignClaimsPage() {
                   <tr>
                     <th>Claim</th>
                     <th>Type</th>
+                    <th className="whitespace-nowrap text-right">Approved payout</th>
                     <th className="hidden sm:table-cell">Decided</th>
                     <th className="hidden md:table-cell">Policyholder</th>
                     <th className="w-px" aria-label="Actions" />
@@ -275,6 +266,9 @@ export default function AssignClaimsPage() {
                       </td>
                       <td>
                         <InsuranceTypeBadge type={c.insurance_type} />
+                      </td>
+                      <td className="whitespace-nowrap text-right text-fg tabular-nums">
+                        {c.approved_payout != null ? `RM ${c.approved_payout.toLocaleString("en-MY", { minimumFractionDigits: 2 })}` : "—"}
                       </td>
                       <td className="hidden whitespace-nowrap text-fg-2 tabular-nums sm:table-cell">
                         {c.decided_at ? new Date(c.decided_at).toLocaleDateString() : "—"}

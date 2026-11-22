@@ -1,24 +1,46 @@
-const supabase = require("../services/supabaseService");
+const db = require("../services/db");
 const { getPlan, POLICY_PLANS } = require("../constants/policyPlans");
 const { CLAIM_TO_POLICY_TYPE } = require("../constants/insuranceMap");
 const {
   createPolicyOnChain,
   recordPaymentOnChain,
   renewPolicyOnChain,
-  getEffectiveStatus,
+  getPolicyOnChain,
+  getPaymentHistory,
   checkEligibility,
   ChainError,
 } = require("../services/policyChainService");
+const { buildPolicyViews } = require("../services/policyView");
+
+/*
+ * Where policy data lives
+ *   blockchain  PolicyRegistry: plan, premium, payment mode, instalments paid,
+ *               start / end / pay-by dates, status (computed from time), and
+ *               every payment as an event.
+ *   database    only the link to the owning account and the display number.
+ * Reads join the two in services/policyView.js.
+ */
 
 function genPolicyNumber(type) {
   const rand = Math.floor(Math.random() * 90000 + 10000);
   return `POL-${type.toUpperCase()}-${new Date().getFullYear()}-${rand}`;
 }
 
-function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
+function chainReadFailed(res, err) {
+  return res.status(503).json({ error: `Could not read the blockchain: ${err.shortMessage || err.message}` });
+}
+
+/** The caller's own policy row (database link only), or null. */
+async function findOwnPolicy(id, holderId) {
+  return db.one("SELECT * FROM policies WHERE id = $1 AND holder_id = $2", [id, holderId]);
+}
+
+/** Save the database link for a policy just created on-chain. */
+function insertPolicyLink(onChainPolicyId, user, type) {
+  return db.one(
+    `INSERT INTO policies (on_chain_policy_id, policyholder_id, holder_id, policy_number) VALUES ($1, $2, $3, $4) RETURNING *`,
+    [onChainPolicyId, user.userId, user.holderId, genPolicyNumber(type)]
+  );
 }
 
 async function listPlans(req, res) {
@@ -42,164 +64,118 @@ async function createPolicy(req, res) {
     return res.status(500).json({ error: err.message });
   }
 
-  const start = new Date();
-  const end = addDays(start, 365);
+  let row;
+  try {
+    row = await insertPolicyLink(onChain.onChainPolicyId, req.user, plan.type);
+  } catch (err) {
+    return res.status(500).json({
+      error: `Policy #${onChain.onChainPolicyId} was recorded on-chain, but saving its account link failed: ${err.message}`,
+    });
+  }
 
-  const { data: policy, error } = await supabase
-    .from("policies")
-    .insert({
-      on_chain_policy_id: onChain.onChainPolicyId,
-      policyholder_id: req.user.id,
-      holder_id: req.user.holderId,
-      policy_number: genPolicyNumber(plan.type),
-      policy_type: plan.type,
-      plan_id: plan.planId,
-      plan_name: plan.name,
-      premium: plan.premiumRM,
-      payment_mode: paymentMode,
-      total_instalments: instalments,
-      paid_instalments: 0,
-      start_date: start.toISOString().slice(0, 10),
-      end_date: end.toISOString().slice(0, 10),
-      status: "PendingPayment",
-      create_tx_hash: onChain.txHash,
-    })
-    .select()
-    .single();
-
-  if (error) return res.status(500).json({ error: error.message });
-
-  res.status(201).json({ policy, txHash: onChain.txHash });
+  try {
+    const [policy] = await buildPolicyViews([row]);
+    res.status(201).json({ policy, txHash: onChain.txHash });
+  } catch (err) {
+    chainReadFailed(res, err);
+  }
 }
 
 async function recordPayment(req, res) {
-  const { id } = req.params;
+  const row = await findOwnPolicy(req.params.id, req.user.holderId);
+  if (!row) return res.status(404).json({ error: "Policy not found" });
 
-  const { data: policy, error: fetchErr } = await supabase
-    .from("policies")
-    .select("*")
-    .eq("id", id)
-    .eq("holder_id", req.user.holderId)
-    .single();
-
-  if (fetchErr || !policy) return res.status(404).json({ error: "Policy not found" });
+  let chain;
+  try {
+    chain = await getPolicyOnChain(row.on_chain_policy_id);
+  } catch (err) {
+    return chainReadFailed(res, err);
+  }
 
   const amount =
-    policy.payment_mode === "Instalment" ? Math.round((policy.premium / policy.total_instalments) * 100) / 100 : policy.premium;
+    chain.paymentMode === "Instalment" ? Math.round((chain.premiumRM / chain.totalInstalments) * 100) / 100 : chain.premiumRM;
 
   let onChain;
   try {
-    onChain = await recordPaymentOnChain(policy.on_chain_policy_id, amount);
+    onChain = await recordPaymentOnChain(row.on_chain_policy_id, amount);
   } catch (err) {
     if (err instanceof ChainError) return res.status(400).json({ error: err.code });
     return res.status(500).json({ error: err.message });
   }
 
-  const status = await getEffectiveStatus(policy.on_chain_policy_id);
-  const paidInstalments = policy.paid_instalments + 1;
-
-  const { data: updated, error } = await supabase
-    .from("policies")
-    .update({ paid_instalments: paidInstalments, status, last_synced_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-    .single();
-
-  if (error) return res.status(500).json({ error: error.message });
-
-  await supabase.from("policy_payments").insert({
-    policy_id: id,
-    amount,
-    ref_hash: onChain.refHash,
-    instalment_number: paidInstalments,
-    tx_hash: onChain.txHash,
-  });
-
-  res.json({ policy: updated, txHash: onChain.txHash });
+  try {
+    const [policy] = await buildPolicyViews([row]);
+    res.json({ policy, txHash: onChain.txHash });
+  } catch (err) {
+    chainReadFailed(res, err);
+  }
 }
 
 async function renewPolicy(req, res) {
-  const { id } = req.params;
   const { paymentMode, instalmentCount } = req.body;
 
-  const { data: old, error: fetchErr } = await supabase
-    .from("policies")
-    .select("*")
-    .eq("id", id)
-    .eq("holder_id", req.user.holderId)
-    .single();
+  const old = await findOwnPolicy(req.params.id, req.user.holderId);
+  if (!old) return res.status(404).json({ error: "Policy not found" });
 
-  if (fetchErr || !old) return res.status(404).json({ error: "Policy not found" });
+  let oldChain;
+  try {
+    oldChain = await getPolicyOnChain(old.on_chain_policy_id);
+  } catch (err) {
+    return chainReadFailed(res, err);
+  }
 
   const instalments = paymentMode === "Instalment" ? Number(instalmentCount) || 3 : 1;
 
   let onChain;
   try {
-    onChain = await renewPolicyOnChain(old.on_chain_policy_id, paymentMode, instalments, old.premium);
+    onChain = await renewPolicyOnChain(old.on_chain_policy_id, paymentMode, instalments, oldChain.premiumRM);
   } catch (err) {
     if (err instanceof ChainError) return res.status(400).json({ error: err.code });
     return res.status(500).json({ error: err.message });
   }
 
-  const status = await getEffectiveStatus(onChain.onChainPolicyId);
-  const start = new Date(old.end_date) > new Date() ? new Date(old.end_date) : new Date();
-  const end = addDays(start, 365);
-  const payDeadline = status === "GracePeriod" ? addDays(new Date(), 14) : null;
+  let row;
+  try {
+    row = await insertPolicyLink(onChain.onChainPolicyId, req.user, oldChain.policyType);
+  } catch (err) {
+    return res.status(500).json({
+      error: `Policy #${onChain.onChainPolicyId} was recorded on-chain, but saving its account link failed: ${err.message}`,
+    });
+  }
 
-  const { data: renewed, error } = await supabase
-    .from("policies")
-    .insert({
-      on_chain_policy_id: onChain.onChainPolicyId,
-      policyholder_id: req.user.id,
-      holder_id: req.user.holderId,
-      policy_number: genPolicyNumber(old.policy_type),
-      policy_type: old.policy_type,
-      plan_id: old.plan_id,
-      plan_name: old.plan_name,
-      premium: old.premium,
-      payment_mode: paymentMode,
-      total_instalments: instalments,
-      paid_instalments: 0,
-      start_date: start.toISOString().slice(0, 10),
-      end_date: end.toISOString().slice(0, 10),
-      pay_deadline: payDeadline ? payDeadline.toISOString().slice(0, 10) : null,
-      status,
-      previous_policy_id: id,
-      create_tx_hash: onChain.txHash,
-    })
-    .select()
-    .single();
-
-  if (error) return res.status(500).json({ error: error.message });
-
-  res.status(201).json({ policy: renewed, txHash: onChain.txHash });
+  try {
+    const [policy] = await buildPolicyViews([row]);
+    res.status(201).json({ policy, txHash: onChain.txHash });
+  } catch (err) {
+    chainReadFailed(res, err);
+  }
 }
 
 async function getMyPolicies(req, res) {
-  const { data: policies, error } = await supabase
-    .from("policies")
-    .select("*")
-    .eq("holder_id", req.user.holderId)
-    .order("created_at", { ascending: false });
+  let rows;
+  try {
+    rows = await db.query("SELECT * FROM policies WHERE holder_id = $1 ORDER BY created_at DESC", [req.user.holderId]);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 
-  if (error) return res.status(500).json({ error: error.message });
+  try {
+    res.json({ policies: await buildPolicyViews(rows) });
+  } catch (err) {
+    chainReadFailed(res, err);
+  }
+}
 
-  const refreshed = await Promise.all(
-    policies.map(async (p) => {
-      try {
-        const status = await getEffectiveStatus(p.on_chain_policy_id);
-        if (status !== p.status) {
-          await supabase.from("policies").update({ status, last_synced_at: new Date().toISOString() }).eq("id", p.id);
-          return { ...p, status };
-        }
-        return p;
-      } catch {
-        return p;
-      }
-    })
-  );
+/** Every payment recorded on-chain for one of the caller's policies. */
+async function getPayments(req, res) {
+  const row = await findOwnPolicy(req.params.id, req.user.holderId);
+  if (!row) return res.status(404).json({ error: "Policy not found" });
 
-  res.json({ policies: refreshed });
+  try {
+    res.json({ payments: await getPaymentHistory(row.on_chain_policy_id) });
+  } catch (err) {
+    chainReadFailed(res, err);
+  }
 }
 
 async function getEligibility(req, res) {
@@ -210,11 +186,11 @@ async function getEligibility(req, res) {
   if (!mappedType)
     return res.json({ eligible: false, reasonCode: "TYPE_MISMATCH", message: "This insurance type has no matching policy plan" });
 
-  const { data: policy, error } = await supabase.from("policies").select("*").eq("id", id).single();
-  if (error || !policy) return res.status(404).json({ error: "Policy not found" });
+  const policy = await db.one("SELECT on_chain_policy_id FROM policies WHERE id = $1", [id]);
+  if (!policy) return res.status(404).json({ error: "Policy not found" });
 
   const result = await checkEligibility(policy.on_chain_policy_id, req.user.holderId, mappedType, incidentDate);
   res.json(result);
 }
 
-module.exports = { listPlans, createPolicy, recordPayment, renewPolicy, getMyPolicies, getEligibility };
+module.exports = { listPlans, createPolicy, recordPayment, renewPolicy, getMyPolicies, getPayments, getEligibility };

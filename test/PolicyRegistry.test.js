@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
-const PolicyType = { Motor: 0, Medical: 1, Life: 2 };
+const PolicyType = { Car: 0, Motor: 1, Travel: 2, Health: 3 };
 const PaymentMode = { PayNow: 0, Instalment: 1, PayLater: 2 };
 const PolicyStatus = {
   PendingPayment: 0,
@@ -125,7 +125,9 @@ describe("PolicyRegistry", function () {
 
     expect(await policyRegistry.effectiveStatus(newPolicyId)).to.equal(PolicyStatus.GracePeriod);
 
-    await time.increase(14 * 24 * 60 * 60 + 1);
+    // The pay-later deadline runs from the new policy's start date (the old
+    // end date, 10 days away), so pass those 10 days plus the 14-day grace.
+    await time.increase(10 * 24 * 60 * 60 + 14 * 24 * 60 * 60 + 1);
     expect(await policyRegistry.effectiveStatus(newPolicyId)).to.equal(PolicyStatus.Lapsed);
   });
 

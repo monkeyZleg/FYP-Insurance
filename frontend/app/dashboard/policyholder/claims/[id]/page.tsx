@@ -22,20 +22,12 @@ import {
 } from "@fluentui/react-icons";
 import type { Claim, Document as ClaimDocument } from "@/types";
 
-interface OnChainClaim {
-  detailsHash: string;
-  status: number;
-  submittedAt: number;
-  decidedAt: number;
-}
-
 export default function ClaimDetailPage() {
   const params = useParams();
   const claimId = params.id as string;
   const { token } = useRole();
   const [claim, setClaim] = useState<Claim | null>(null);
   const [documents, setDocuments] = useState<ClaimDocument[]>([]);
-  const [onChain, setOnChain] = useState<OnChainClaim | null>(null);
   const bannerRef = useRef<HTMLDivElement>(null);
   const animatedStatus = useRef<string | null>(null);
 
@@ -48,13 +40,6 @@ export default function ClaimDetailPage() {
       .then((d) => setDocuments(d.documents || []))
       .catch(() => setDocuments([]));
   }, [claimId, token]);
-
-  useEffect(() => {
-    if (!token || !claim?.on_chain_claim_id) return;
-    apiFetchAuth(`/api/blockchain/claim/${claim.on_chain_claim_id}`, {}, token)
-      .then(setOnChain)
-      .catch(() => setOnChain(null));
-  }, [claim?.on_chain_claim_id, token]);
 
   // Moment D: claim outcome (design spec Part 3.3.D). Plays once per status,
   // when the claim has settled into Approved/Settled/Rejected. A rejected
@@ -75,7 +60,8 @@ export default function ClaimDetailPage() {
   if (!claim) return <DetailSkeleton />;
 
   const config = getInsuranceConfig(claim.insurance_type);
-  const hashMatch = onChain && claim.details_hash ? onChain.detailsHash === claim.details_hash : null;
+  // The server re-hashes the stored form details and files and compares them with what the contract recorded.
+  const hashMatch = claim.integrity ? claim.integrity.detailsMatch && claim.integrity.documentsMatch : null;
   const isOutcome = ["Approved", "Settled", "Rejected"].includes(claim.status);
   const isHappyOutcome = claim.status === "Approved" || claim.status === "Settled";
 
@@ -146,6 +132,30 @@ export default function ClaimDetailPage() {
             </dl>
           </section>
 
+          {claim.approved_payout != null && (
+            <section className="card enter enter-3 overflow-hidden">
+              <h2 className="border-b border-[var(--divider-stroke)] px-5 py-3.5 t-body-strong text-fg">Payout</h2>
+              <dl className="divide-y divide-[var(--divider-stroke)]">
+                {claim.claimed_amount != null && <Row label="Amount claimed" value={rm(claim.claimed_amount)} />}
+                <Row label="Approved payout" value={rm(claim.approved_payout)} />
+                {claim.status === "Settled" && claim.service_charge != null && claim.net_payout != null ? (
+                  <>
+                    <Row
+                      label="Service charge"
+                      value={claim.net_payout < claim.approved_payout ? `− ${rm(claim.service_charge)}` : `${rm(claim.service_charge)} (billed to the insurer, not to you)`}
+                    />
+                    <Row label="You receive" value={rm(claim.net_payout)} />
+                  </>
+                ) : (
+                  <Row label="Service charge" value="Worked out on-chain when the claim is settled" />
+                )}
+              </dl>
+              <p className="border-t border-[var(--divider-stroke)] px-5 py-3 t-caption text-fg-2">
+                These figures are recorded on the blockchain and can&apos;t be changed. Payments are simulated.
+              </p>
+            </section>
+          )}
+
           {claim.verifier_remark && (
             <section className="card enter enter-3 p-5">
               <h2 className="mb-3 flex items-center gap-2 t-body-strong text-fg">
@@ -187,7 +197,7 @@ export default function ClaimDetailPage() {
                   <HashDisplay hash={claim.submit_tx_hash} etherscanTx />
                 </dd>
               </div>
-              {onChain && <Row label="Block recorded" value={new Date(onChain.submittedAt * 1000).toLocaleString()} />}
+              <Row label="Recorded on-chain" value={new Date(claim.submitted_at).toLocaleString()} />
             </dl>
           </section>
 
@@ -215,6 +225,8 @@ export default function ClaimDetailPage() {
     </div>
   );
 }
+
+const rm = (n: number) => `RM ${n.toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (

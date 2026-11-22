@@ -1,6 +1,6 @@
 "use client";
-import { ChevronLeftRegular, ChevronRightRegular } from "@fluentui/react-icons";
-import { useCallback, useEffect, useState } from "react";
+import { ChevronLeftRegular, ChevronRightRegular, PauseRegular, PlayRegular } from "@fluentui/react-icons";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // Demo personas, one per role. All ChainIns data is simulated, and the section
 // says so; these are not real customers.
@@ -27,7 +27,7 @@ const FEEDBACK = [
   },
 ];
 
-const HOLD_MS = 10000;
+const HOLD_MS = 15000;
 
 const ARROW =
   "absolute top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-[var(--control-stroke-secondary)] text-fg-3 opacity-40 transition-[opacity,color,background-color] duration-300 hover:opacity-100 hover:text-fg focus-visible:opacity-100";
@@ -45,13 +45,20 @@ function initials(s: string) {
  * Feedback carousel: one quote at a time, crossfading every 15 seconds.
  * All quotes share one grid cell so the section never changes height;
  * the outgoing quote fades up and out while the next fades in. Auto-advance
- * runs continuously and pauses only on a hidden tab
- * and under reduced motion.
+ * keeps running wherever you are on the page, and stops only for the pause
+ * button, keyboard focus inside the carousel, a hidden tab, and reduced motion.
+ * The arrows and dots jump to a quote and restart its 15 seconds.
+ *
+ * It deliberately does NOT pause on hover: after scrolling with a wheel the
+ * cursor usually rests over the section, which froze it until you scrolled away.
  */
 export default function Testimonials({ serifClassName = "" }: { serifClassName?: string }) {
   const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false); // pause button
+  const [focused, setFocused] = useState(false); // keyboard focus inside
   const [reduced, setReduced] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const rootRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -70,7 +77,12 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
 
   const go = useCallback((i: number) => setIndex((i + FEEDBACK.length) % FEEDBACK.length), []);
 
-  const still = reduced || hidden;
+  const still = paused || focused || reduced || hidden;
+
+  // Time left on the current quote: a pause freezes it, resuming continues it,
+  // a new quote starts a full hold. The pill's fill animation pauses in step.
+  const left = useRef(HOLD_MS);
+  const shown = useRef(index);
   useEffect(() => {
     if (shown.current !== index) {
       shown.current = index;
@@ -87,89 +99,95 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
 
   return (
     <section
+      ref={rootRef}
       aria-roledescription="carousel"
       aria-label="What people say about ChainIns"
+      // keyboard focus only; a mouse click on a dot or arrow must not leave it stuck
+      onFocus={(e) => setFocused((e.target as HTMLElement).matches(":focus-visible"))}
+      onBlur={(e) => {
+        if (!rootRef.current?.contains(e.relatedTarget as Node)) setFocused(false);
+      }}
     >
       <div className="mx-auto max-w-[900px] px-4 py-24 text-center sm:px-8 sm:py-32">
         <div className="relative px-10 sm:px-14">
-          {/* clicking an arrow changes index, which restarts the 15s timer */}
           <button type="button" aria-label="Previous feedback" onClick={() => go(index - 1)} className={`${ARROW} left-0`}>
             <ChevronLeftRegular fontSize={22} />
           </button>
           <button type="button" aria-label="Next feedback" onClick={() => go(index + 1)} className={`${ARROW} right-0`}>
             <ChevronRightRegular fontSize={22} />
           </button>
-        <div className="grid" aria-live="off">
-          {FEEDBACK.map((f, i) => {
-            const on = i === index;
-            return (
-              <figure
-                key={f.name}
-                aria-hidden={!on}
-                aria-roledescription="slide"
-                aria-label={`${i + 1} of ${FEEDBACK.length}`}
-                className={`col-start-1 row-start-1 flex flex-col items-center transition-[opacity,transform,filter] ease-[cubic-bezier(0.1,0.9,0.2,1)] ${
-                  on
-                    ? "visible translate-y-0 opacity-100 blur-0 duration-[900ms] delay-200"
-                    : "invisible -translate-y-2 opacity-0 blur-[3px] duration-500 [transition-property:opacity,transform,filter,visibility]"
-                }`}
-              >
-                <span
-                  aria-hidden
-                  className={`grid h-[76px] w-[76px] place-items-center rounded-[22px] font-display text-[26px] font-semibold text-white shadow-[0_18px_36px_-12px_rgba(16,24,64,0.35),inset_0_1px_0_rgba(255,255,255,0.3)] transition-transform duration-[900ms] ease-[cubic-bezier(0.1,0.9,0.2,1)] ${
-                    on ? "scale-100" : "scale-90"
+
+          <div className="grid" aria-live={still ? "polite" : "off"}>
+            {FEEDBACK.map((f, i) => {
+              const on = i === index;
+              return (
+                <figure
+                  key={f.name}
+                  aria-hidden={!on}
+                  aria-roledescription="slide"
+                  aria-label={`${i + 1} of ${FEEDBACK.length}`}
+                  className={`col-start-1 row-start-1 flex flex-col items-center transition-[opacity,transform,filter] ease-[cubic-bezier(0.1,0.9,0.2,1)] ${
+                    on
+                      ? "visible translate-y-0 opacity-100 blur-0 duration-[900ms] delay-200"
+                      : "invisible -translate-y-2 opacity-0 blur-[3px] duration-500 [transition-property:opacity,transform,filter,visibility]"
                   }`}
-                  style={{ background: `linear-gradient(145deg, ${f.tint[0]}, ${f.tint[1]})` }}
                 >
-                  {initials(f.name)}
-                </span>
-                <blockquote
-                  className={`${serifClassName} mt-10 text-[clamp(24px,3.4vw,36px)] leading-[1.42] tracking-[-0.005em] text-fg [text-wrap:balance]`}
-                >
-                  &ldquo;{f.quote}&rdquo;
-                </blockquote>
-                <figcaption className="mt-7 t-caption text-fg-3">– {f.name}</figcaption>
-              </figure>
-            );
-          })}
-        </div>
+                  <span
+                    aria-hidden
+                    className={`grid h-[76px] w-[76px] place-items-center rounded-[22px] font-display text-[26px] font-semibold text-white shadow-[0_18px_36px_-12px_rgba(16,24,64,0.35),inset_0_1px_0_rgba(255,255,255,0.3)] transition-transform duration-[900ms] ease-[cubic-bezier(0.1,0.9,0.2,1)] ${
+                      on ? "scale-100" : "scale-90"
+                    }`}
+                    style={{ background: `linear-gradient(145deg, ${f.tint[0]}, ${f.tint[1]})` }}
+                  >
+                    {initials(f.name)}
+                  </span>
+                  <blockquote
+                    className={`${serifClassName} mt-10 text-[clamp(24px,3.4vw,36px)] leading-[1.42] tracking-[-0.005em] text-fg [text-wrap:balance]`}
+                  >
+                    &ldquo;{f.quote}&rdquo;
+                  </blockquote>
+                  <figcaption className="mt-7 t-caption text-fg-3">– {f.name}</figcaption>
+                </figure>
+              );
+            })}
+          </div>
         </div>
 
         {/* pager: the active pill fills over the hold time */}
         <div className="mt-12 flex items-center justify-center gap-3">
           <div className="flex items-center gap-2" role="tablist" aria-label="Choose feedback">
-          {FEEDBACK.map((f, i) => {
-            const on = i === index;
-            return (
-              <button
-                key={f.name}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                aria-label={`Show feedback from ${f.name.toLowerCase()}`}
-                onClick={() => go(i)}
-                className="group grid h-6 place-items-center px-0.5"
-              >
-                <span
-                  className={`relative block h-1.5 overflow-hidden rounded-full bg-[var(--control-stroke-secondary)] transition-[width,background-color] duration-500 ease-[cubic-bezier(0.1,0.9,0.2,1)] group-hover:bg-[var(--control-strong-stroke)] ${
-                    on ? "w-8" : "w-1.5"
-                  }`}
+            {FEEDBACK.map((f, i) => {
+              const on = i === index;
+              return (
+                <button
+                  key={f.name}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  aria-label={`Show feedback from ${f.name.toLowerCase()}`}
+                  onClick={() => go(i)}
+                  className="group grid h-6 place-items-center px-0.5"
                 >
-                  {on && (
-                    <span
-                      key={index}
-                      className="absolute inset-y-0 left-0 rounded-full bg-[var(--accent-fill)]"
-                      style={
-                        reduced
-                          ? { width: "100%" }
-                          : { animation: `feedback-fill ${HOLD_MS}ms linear both`, animationPlayState: still ? "paused" : "running" }
-                      }
-                    />
-                  )}
-                </span>
-              </button>
-            );
-          })}
+                  <span
+                    className={`relative block h-1.5 overflow-hidden rounded-full bg-[var(--control-stroke-secondary)] transition-[width,background-color] duration-500 ease-[cubic-bezier(0.1,0.9,0.2,1)] group-hover:bg-[var(--control-strong-stroke)] ${
+                      on ? "w-8" : "w-1.5"
+                    }`}
+                  >
+                    {on && (
+                      <span
+                        key={index}
+                        className="absolute inset-y-0 left-0 rounded-full bg-[var(--accent-fill)]"
+                        style={
+                          reduced
+                            ? { width: "100%" }
+                            : { animation: `feedback-fill ${HOLD_MS}ms linear both`, animationPlayState: still ? "paused" : "running" }
+                        }
+                      />
+                    )}
+                  </span>
+                </button>
+              );
+            })}
           </div>
           {!reduced && (
             <button

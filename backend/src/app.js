@@ -11,6 +11,11 @@ const policyRoutes = require("./routes/policyRoutes");
 const app = express();
 app.use(cors());
 app.use(express.json());
+// Express 5 leaves req.body undefined when a request has no body; the handlers expect {}.
+app.use((req, res, next) => {
+  req.body ??= {};
+  next();
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/claims", claimRoutes);
@@ -20,6 +25,13 @@ app.use("/api/policies", policyRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Express 5 sends errors thrown in async handlers here instead of leaving the request hanging.
+app.use((err, req, res, next) => {
+  if (err.code === "22P02") return res.status(400).json({ error: "Invalid id" }); // malformed UUID in the URL
+  console.error(err);
+  res.status(500).json({ error: err.message || "Server error" });
 });
 
 const PORT = process.env.PORT || 5000;

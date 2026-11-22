@@ -73,13 +73,8 @@ export default function AuditorDashboard() {
     setFlagging(claim.id);
     setError("");
     try {
-      const { receipt, findingHash } = await flagClaim(claim.on_chain_claim_id, `Flagged claim ${claim.id}`);
-      const txHash = receipt?.hash || receipt?.transactionHash || "";
-      await apiFetch(
-        `/api/claims/${claim.id}/flag`,
-        { method: "PATCH", body: JSON.stringify({ txHash, findingHash }) },
-        wallet
-      );
+      // Signed with the auditor's wallet; the flag is read back from the chain.
+      await flagClaim(claim.on_chain_claim_id, `Flagged claim ${claim.id}`);
       await loadClaims();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to flag claim");

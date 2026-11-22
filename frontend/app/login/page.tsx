@@ -15,7 +15,7 @@ import {
   WalletRegular,
 } from "@fluentui/react-icons";
 import { useMetaMask } from "@/hooks/useMetaMask";
-import { apiFetch } from "@/lib/api";
+import { authApi } from "@/api";
 import Mascot from "@/components/mascot/Mascot";
 import AuthLayout from "@/components/landing/AuthLayout";
 import SelectorBar from "@/components/ui/SelectorBar";
@@ -74,39 +74,21 @@ export default function LoginPage() {
     setPhLoading(true);
     setPhError("");
 
-    try {
-      // Hardcoded login credentials
-      if (email !== "lsk@gmail.com" || password !== "123456") {
-        throw new Error("Invalid email or password");
-      } else {
-        // Redirect to dashboard
-        router.push("/dashboard/policyholder");
-      }
-
-      // Mock login data
-      const data = {
-        token: "mock-jwt-token",
-        role: "policyholder",
-        name: "Leong Seng Khuan",
-        userId: "1",
-        holderId: "1",
-      };
-
-      // Store login information
-      localStorage.setItem("jwt", data.token);
-      localStorage.setItem("role", data.role);
-      localStorage.removeItem("wallet");
-      localStorage.setItem("userName", data.name || "");
-      localStorage.setItem("userId", data.userId || "");
-      localStorage.setItem("holderId", data.holderId || "");
-
-      // Redirect to dashboard
-      router.push("/dashboard/policyholder");
-    } catch (err) {
-      setPhError(err instanceof Error ? err.message : "Login failed");
-    } finally {
-      setPhLoading(false);
+    const result = await authApi.loginPolicyholder(email, password);
+    setPhLoading(false);
+    if (!result.ok) {
+      setPhError(result.error);
+      return;
     }
+
+    const data = result.data;
+    localStorage.setItem("jwt", data.token);
+    localStorage.setItem("role", data.role);
+    localStorage.removeItem("wallet");
+    localStorage.setItem("userName", data.name || "");
+    localStorage.setItem("userId", data.userId || "");
+    localStorage.setItem("holderId", data.holderId || "");
+    router.push("/dashboard/policyholder");
   }
 
   async function handleConnectMetaMask() {
@@ -129,21 +111,21 @@ export default function LoginPage() {
     pendingAutoLogin.current = false;
     setStaffPhase("checking");
 
-    apiFetch("/api/auth/login", { method: "POST", body: JSON.stringify({ walletAddress: address }) }, undefined)
-      .then((data) => {
-        localStorage.setItem("jwt", data.token);
-        localStorage.setItem("role", data.role);
-        localStorage.setItem("wallet", address);
-        localStorage.setItem("userName", data.name || "");
-        localStorage.setItem("userId", data.userId || "");
-        localStorage.removeItem("holderId");
-        router.push(`/dashboard/${data.role}`);
-      })
-      .catch((err) => {
-        const message = err instanceof Error ? err.message : "Login failed";
-        setStaffError(message.toLowerCase().includes("not registered") ? UNREGISTERED_STAFF_MESSAGE : message);
+    authApi.loginStaff(address).then((result) => {
+      if (!result.ok) {
+        setStaffError(result.error.toLowerCase().includes("not registered") ? UNREGISTERED_STAFF_MESSAGE : result.error);
         setStaffPhase("idle");
-      });
+        return;
+      }
+      const data = result.data;
+      localStorage.setItem("jwt", data.token);
+      localStorage.setItem("role", data.role);
+      localStorage.setItem("wallet", address);
+      localStorage.setItem("userName", data.name || "");
+      localStorage.setItem("userId", data.userId || "");
+      localStorage.removeItem("holderId");
+      router.push(`/dashboard/${data.role}`);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 

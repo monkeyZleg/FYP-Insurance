@@ -10,10 +10,7 @@ const {
   getMyClaims,
   getPendingClaims,
   getAllClaims,
-  assignClaim,
-  updateClaimStatus,
-  settleClaim,
-  flagClaim,
+  saveRemark,
 } = require("../controllers/claimController");
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -23,9 +20,9 @@ router.get("/pending", rbac("admin"), getPendingClaims);
 router.get("/all", rbac("admin", "verifier", "auditor"), getAllClaims);
 router.get("/my", policyholderAuth, getMyClaims);
 router.get("/:id", flexibleAuth("policyholder", "verifier", "admin", "auditor"), getClaimById);
-router.patch("/:id/assign", rbac("admin"), assignClaim);
-router.patch("/:id/status", rbac("verifier"), updateClaimStatus);
-router.patch("/:id/settle", rbac("admin"), settleClaim);
-router.patch("/:id/flag", rbac("auditor"), flagClaim);
+// Assign / decide / settle / flag are signed on-chain by staff wallets and read
+// back from the chain, so they have no endpoints here. Only the verifier's
+// written remark (whose hash is on-chain) is stored in the database.
+router.patch("/:id/remark", rbac("verifier"), saveRemark);
 
 module.exports = router;
