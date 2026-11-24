@@ -629,8 +629,10 @@ function SiteNav() {
     <div className="fixed inset-x-0 top-0 z-40 px-3 pt-3 sm:px-6">
       <nav
         aria-label="Primary"
-        className={`mx-auto flex h-14 max-w-[1240px] items-center gap-2 rounded-[12px] border pl-4 pr-2 transition-[background-color,border-color,box-shadow] duration-300 ${
-          scrolled || open ? "acrylic border-[var(--surface-stroke-flyout)] shadow-flyout" : "border-transparent"
+        // Always clear glass: no fill, just a heavy blur of whatever is behind it.
+        // Once scrolled, a hairline border and shadow separate it from the content.
+        className={`mx-auto flex h-14 max-w-[1240px] items-center gap-2 rounded-[12px] border pl-4 pr-2 backdrop-blur-xl transition-[border-color,box-shadow] duration-300 ${
+          scrolled || open ? "border-[var(--surface-stroke-flyout)] shadow-flyout" : "border-transparent"
         }`}
       >
         <Link href="/" className="mr-4 rounded-[var(--radius-control)]">
