@@ -8,31 +8,14 @@ async function handle(res: Response) {
   return res.json();
 }
 
-export async function apiFetch(
-  path: string,
-  options: RequestInit = {},
-  walletAddress?: string
-) {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
-  };
-
-  if (walletAddress) {
-    headers["x-wallet-address"] = walletAddress;
-  }
-
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-  });
-
-  return handle(res);
+// Staff requests (verifier / admin / auditor), authenticated with the Bearer
+// JWT from the email + password login. Same as apiFetchAuth below; kept as its
+// own name because the staff pages import it.
+export async function apiFetch(path: string, options: RequestInit = {}, token?: string) {
+  return apiFetchAuth(path, options, token);
 }
 
-// Policyholder-facing requests: authenticated with a Bearer JWT instead of
-// the staff x-wallet-address header. Used for /api/policies and
-// /api/claims routes reached by a policyholder session.
+// Requests authenticated with the Bearer JWT from login (any role).
 export async function apiFetchAuth(
   path: string,
   options: RequestInit = {},

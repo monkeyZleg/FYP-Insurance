@@ -15,7 +15,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import type { Claim, User } from "@/types";
 
 export default function AssignClaimsPage() {
-  const { wallet } = useRole();
+  const { token } = useRole();
   const { assignVerifier, settleClaim } = useClaimRegistry();
   const [view, setView] = useState<"assign" | "settle">("assign");
   const [claims, setClaims] = useState<Claim[]>([]);
@@ -30,17 +30,17 @@ export default function AssignClaimsPage() {
   const [settling, setSettling] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!wallet) return;
+    if (!token) return;
     loadClaims();
-    apiFetch("/api/auth/users", {}, wallet)
+    apiFetch("/api/auth/users", {}, token)
       .then((d) => setVerifiers((d.users || []).filter((u: User) => u.role === "verifier" && u.is_active !== false)))
       .catch(() => setVerifiers([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet]);
+  }, [token]);
 
   async function loadClaims() {
     try {
-      const data = await apiFetch("/api/claims/all", {}, wallet);
+      const data = await apiFetch("/api/claims/all", {}, token);
       setClaims((data.claims || []).filter((c: Claim) => c.status === "Submitted"));
       setApprovedClaims((data.claims || []).filter((c: Claim) => c.status === "Approved"));
     } catch {

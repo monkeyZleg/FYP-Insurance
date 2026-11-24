@@ -19,22 +19,22 @@ const ROLES: UserRole[] = ["policyholder", "verifier", "admin", "auditor"];
 const STAFF_ROLES: UserRole[] = ["verifier", "admin", "auditor"];
 
 export default function UserManagementPage() {
-  const { wallet } = useRole();
+  const { token } = useRole();
   const [users, setUsers] = useState<User[]>([]);
   const [roleFilter, setRoleFilter] = useState<UserRole | "All">("All");
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ walletAddress: "", fullName: "", email: "", role: "verifier" as UserRole });
+  const [form, setForm] = useState({ fullName: "", email: "", password: "", role: "verifier" as UserRole, walletAddress: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (wallet) loadUsers();
+    if (token) loadUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet]);
+  }, [token]);
 
   async function loadUsers() {
     try {
-      const data = await apiFetch("/api/auth/users", {}, wallet);
+      const data = await apiFetch("/api/auth/users", {}, token);
       setUsers(data.users || []);
     } catch {
       setUsers([]);
@@ -51,9 +51,9 @@ export default function UserManagementPage() {
     setSaving(true);
     setError("");
     try {
-      await apiFetch("/api/auth/register", { method: "POST", body: JSON.stringify(form) }, wallet);
+      await apiFetch("/api/auth/register", { method: "POST", body: JSON.stringify(form) }, token);
       setShowAdd(false);
-      setForm({ walletAddress: "", fullName: "", email: "", role: "verifier" });
+      setForm({ fullName: "", email: "", password: "", role: "verifier", walletAddress: "" });
       loadUsers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add user");
@@ -63,7 +63,7 @@ export default function UserManagementPage() {
   }
 
   async function changeRole(user: User, role: UserRole) {
-    await apiFetch(`/api/auth/users/${user.id}`, { method: "PATCH", body: JSON.stringify({ role }) }, wallet);
+    await apiFetch(`/api/auth/users/${user.id}`, { method: "PATCH", body: JSON.stringify({ role }) }, token);
     loadUsers();
   }
 
@@ -71,7 +71,7 @@ export default function UserManagementPage() {
     await apiFetch(
       `/api/auth/users/${user.id}`,
       { method: "PATCH", body: JSON.stringify({ isActive: user.is_active === false }) },
-      wallet
+      token
     );
     loadUsers();
   }
@@ -83,7 +83,7 @@ export default function UserManagementPage() {
     <div>
       <PageHeader
         title="User management"
-        description="Staff sign in with a registered wallet. Policyholders register themselves."
+        description="Everyone signs in with email and password. Staff also have a wallet that signs their on-chain actions. Policyholders register themselves."
         actions={
           <button onClick={() => setShowAdd(true)} className="btn btn-accent">
             <PersonAddRegular /> Add user
@@ -133,7 +133,7 @@ export default function UserManagementPage() {
                         </span>
                       </td>
                       <td className="hidden font-mono text-[12.5px] text-fg-2 md:table-cell">
-                        {u.wallet_address ? `${u.wallet_address.slice(0, 8)}…${u.wallet_address.slice(-6)}` : <span className="font-sans text-fg-3">Email login</span>}
+                        {u.wallet_address ? `${u.wallet_address.slice(0, 8)}…${u.wallet_address.slice(-6)}` : <span className="font-sans text-fg-3">—</span>}
                       </td>
                       <td>
                         <Select
@@ -191,21 +191,6 @@ export default function UserManagementPage() {
         >
           <div className="space-y-4">
             <div>
-              <label className="field-label" htmlFor="nu-wallet">
-                Wallet address
-              </label>
-              <input
-                id="nu-wallet"
-                required
-                value={form.walletAddress}
-                onChange={(e) => setForm((f) => ({ ...f, walletAddress: e.target.value }))}
-                placeholder="0x…"
-                className="textbox textbox-mono"
-                pattern="^0x[a-fA-F0-9]{40}$"
-                title="A 42-character Ethereum address starting with 0x"
-              />
-            </div>
-            <div>
               <label className="field-label" htmlFor="nu-name">
                 Full name
               </label>
@@ -219,15 +204,32 @@ export default function UserManagementPage() {
             </div>
             <div>
               <label className="field-label" htmlFor="nu-email">
-                Email <span className="t-caption text-fg-3">(optional)</span>
+                Email
               </label>
               <input
                 id="nu-email"
                 type="email"
+                required
+                autoComplete="off"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 className="textbox"
               />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="nu-password">
+                Password
+              </label>
+              <input
+                id="nu-password"
+                type="text"
+                required
+                autoComplete="new-password"
+                value={form.password}
+                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                className="textbox"
+              />
+              <p className="field-hint">They sign in with this email and password, choosing their role on the login page.</p>
             </div>
             <div>
               <label className="field-label" htmlFor="nu-role">
@@ -240,7 +242,22 @@ export default function UserManagementPage() {
                   </option>
                 ))}
               </Select>
-              <p className="field-hint">Policyholders register themselves with email + password from the login page.</p>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="nu-wallet">
+                Wallet address
+              </label>
+              <input
+                id="nu-wallet"
+                required
+                value={form.walletAddress}
+                onChange={(e) => setForm((f) => ({ ...f, walletAddress: e.target.value }))}
+                placeholder="0x…"
+                className="textbox textbox-mono"
+                pattern="^0x[a-fA-F0-9]{40}$"
+                title="A 42-character Ethereum address starting with 0x"
+              />
+              <p className="field-hint">The MetaMask account that signs this person&apos;s on-chain actions. It must also hold their role in the contract.</p>
             </div>
             {error && <InfoBar severity="error">{error}</InfoBar>}
           </div>

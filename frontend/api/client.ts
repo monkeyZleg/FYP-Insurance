@@ -8,8 +8,8 @@ export interface Route {
   path: string;
 }
 
-/** Who is calling: a policyholder's JWT, a staff member's wallet, or nobody (public routes). */
-export type Auth = { token: string } | { wallet: string } | undefined;
+/** Who is calling: the JWT from login (any role), or nobody (public routes). */
+export type Auth = { token: string } | undefined;
 
 /** What every controller returns, so a page can check `result.ok` instead of writing try/catch. */
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string; status: number };
@@ -40,7 +40,6 @@ export async function send<T>(route: Route, options: { auth?: Auth; body?: unkno
   const headers: Record<string, string> = {};
   if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   if (auth && "token" in auth) headers.Authorization = `Bearer ${auth.token}`;
-  if (auth && "wallet" in auth) headers["x-wallet-address"] = auth.wallet;
 
   let res: Response;
   try {

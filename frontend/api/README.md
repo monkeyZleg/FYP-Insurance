@@ -16,9 +16,9 @@ frontend/api/
 ```ts
 import { authApi } from "@/api";
 
-const result = await authApi.loginPolicyholder(email, password);
+const result = await authApi.login(email, password, "policyholder");
 if (!result.ok) {
-  setError(result.error);   // already logged as [api:auth.loginPolicyholder] FAILED
+  setError(result.error);   // already logged as [api:auth.login] FAILED
   return;
 }
 localStorage.setItem("jwt", result.data.token);

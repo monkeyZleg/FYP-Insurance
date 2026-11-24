@@ -15,7 +15,7 @@ Not every user has a crypto wallet, so the contracts separate **who acts** from 
 | Actor | Login | Signs blockchain transactions with |
 |---|---|---|
 | Policyholder | Email + password (hashed with scrypt in the `users` table) | **Backend relayer wallet**, on their behalf. Represented on-chain by a pseudonymous `holderId`, never a wallet address. |
-| Verifier / Admin / Auditor | MetaMask | Their own wallet (`VERIFIER_ROLE` / `ADMIN_ROLE` / `AUDITOR_ROLE`) |
+| Verifier / Admin / Auditor | Email + password (accounts created by an admin) | Their own wallet in MetaMask (`VERIFIER_ROLE` / `ADMIN_ROLE` / `AUDITOR_ROLE`), connected from the dashboard only when they act on-chain |
 
 Two contracts: `PolicyRegistry.sol` ("is this policy valid?") and `ClaimRegistry.sol` ("what happened to this claim?", calls `PolicyRegistry.isEligible()` before accepting a claim). See `smart-contract-spec-hybrid.md` for the full spec, permission matrix and security considerations.
 
@@ -26,8 +26,8 @@ Two contracts: `PolicyRegistry.sol` ("is this policy valid?") and `ClaimRegistry
 | Frontend | Next.js + React + Tailwind CSS |
 | Backend | Node.js + Express.js (relayer wallet for policyholder actions) |
 | Blockchain | Solidity + Hardhat + OpenZeppelin AccessControl + Ethers.js v6 |
-| Wallet | MetaMask (staff only) |
-| Auth | Email/password with scrypt + JWT (policyholders), MetaMask wallet (staff) |
+| Wallet | MetaMask (staff, for signing on-chain actions only) |
+| Auth | Email/password with scrypt + JWT for every role; the login page asks which role you're signing in as |
 | Database | Aiven for PostgreSQL 18: accounts, uploaded files, claim form text only |
 | File Storage | Stored in the `documents` table (`file_data`), next to each file's SHA-256 hash |
 
@@ -67,7 +67,7 @@ Copy `.env.example` files and fill in your values:
 
 ### 3. Set Up Database
 
-The database is the Aiven for PostgreSQL service `fyp-insurance-pg` (Developer plan, Singapore). Run `database/schema.sql` against it (Aiven console > Query editor, or `psql "$DATABASE_URL" -f database/schema.sql`), then `database/seed.sql` for the demo staff accounts.
+The database is the Aiven for PostgreSQL service `fyp-insurance-pg` (Developer plan, Singapore). Run `database/schema.sql` against it (Aiven console > Query editor, or `psql "$DATABASE_URL" -f database/schema.sql`), then `database/seed.sql` for the demo accounts (all use password `Demo@12345`: `admin@beicvs.demo`, `verifier@beicvs.demo`, `auditor@beicvs.demo`, `demo@beicvs.demo`). A database set up before staff had passwords needs `database/migrate-staff-password.sql` once.
 
 **The blockchain is the record of every claim and policy transaction.** Claim and policy status, assigned verifier, decision, approved payout, service charge, net payout, flags, payments and the audit trail are read from the contracts, never copied into the database. The database keeps only what a public, permanent chain shouldn't hold: login accounts, the claim form the policyholder filled in, uploaded files and the verifier's written remark (the chain stores the hashes, and the server re-hashes the stored data on every claim view to detect tampering).
 
@@ -126,9 +126,9 @@ cd frontend && npm run dev
 | Role | Login | Capabilities |
 |---|---|---|
 | Policyholder | Email + password | Buy/renew/pay for a policy, submit claims, upload documents, track status |
-| Verifier | MetaMask | Review assigned claims, approve/reject |
-| Admin | MetaMask | Manage users, assign claims to verifiers, settle approved claims |
-| Auditor | MetaMask | Read-only blockchain audit trail, hash verification, flag claims for investigation |
+| Verifier | Email + password | Review assigned claims, approve/reject |
+| Admin | Email + password | Manage users, assign claims to verifiers, settle approved claims |
+| Auditor | Email + password | Read-only blockchain audit trail, hash verification, flag claims for investigation |
 
 ## License
 

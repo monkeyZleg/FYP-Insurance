@@ -9,13 +9,13 @@ export interface LoginResponse {
   name: string;
   userId: string;
   holderId?: string;
+  /** Staff only: the registered wallet that signs their on-chain actions. */
+  walletAddress?: string;
 }
 
-/** Policyholder sign-in with email and password. */
-export const loginPolicyholder = (email: string, password: string) =>
-  run("auth.loginPolicyholder", () =>
-    send<LoginResponse>(authRoutes.policyholderLogin, { body: { email, password } })
-  );
+/** Sign in with email and password as the chosen role (every role). */
+export const login = (email: string, password: string, role: UserRole) =>
+  run("auth.login", () => send<LoginResponse>(authRoutes.login, { body: { email, password, role } }));
 
 /** Policyholder self-registration. */
 export const registerPolicyholder = (email: string, password: string, fullName: string) =>
@@ -23,20 +23,16 @@ export const registerPolicyholder = (email: string, password: string, fullName: 
     send<{ user: User }>(authRoutes.policyholderRegister, { body: { email, password, fullName } })
   );
 
-/** Staff sign-in: the connected MetaMask address identifies them. */
-export const loginStaff = (walletAddress: string) =>
-  run("auth.loginStaff", () => send<LoginResponse>(authRoutes.staffLogin, { body: { walletAddress } }));
-
 /** Admin: add a staff member (verifier, admin or auditor). */
 export const registerStaff = (
-  wallet: string,
-  form: { walletAddress: string; fullName: string; email: string; role: UserRole }
-) => run("auth.registerStaff", () => send<{ user: User }>(authRoutes.staffRegister, { auth: { wallet }, body: form }));
+  token: string,
+  form: { walletAddress: string; fullName: string; email: string; password: string; role: UserRole }
+) => run("auth.registerStaff", () => send<{ user: User }>(authRoutes.staffRegister, { auth: { token }, body: form }));
 
 /** Admin: list every user. */
-export const listUsers = (wallet: string) =>
-  run("auth.listUsers", () => send<{ users: User[] }>(authRoutes.listUsers, { auth: { wallet } }));
+export const listUsers = (token: string) =>
+  run("auth.listUsers", () => send<{ users: User[] }>(authRoutes.listUsers, { auth: { token } }));
 
 /** Admin: change a user's role or switch the account on or off. */
-export const updateUser = (wallet: string, id: string, changes: { role?: UserRole; isActive?: boolean }) =>
-  run("auth.updateUser", () => send<{ user: User }>(authRoutes.updateUser(id), { auth: { wallet }, body: changes }));
+export const updateUser = (token: string, id: string, changes: { role?: UserRole; isActive?: boolean }) =>
+  run("auth.updateUser", () => send<{ user: User }>(authRoutes.updateUser(id), { auth: { token }, body: changes }));

@@ -7,7 +7,7 @@ const { deriveHolderId } = require("../services/holderIdService");
 const STAFF_ROLES = ["verifier", "admin", "auditor"];
 const scrypt = promisify(crypto.scrypt);
 
-/** Policyholder passwords are stored as "salt:hash" (scrypt, built into Node). */
+/** Passwords (every role) are stored as "salt:hash" (scrypt, built into Node). */
 async function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
   return `${salt}:${(await scrypt(password, salt, 64)).toString("hex")}`;
@@ -20,61 +20,78 @@ async function checkPassword(password, stored) {
   return crypto.timingSafeEqual(actual, Buffer.from(hash, "hex"));
 }
 
-/* ---- Staff (MetaMask wallet) login/register — unchanged model ---- */
+/* ---- Login: every role signs in with email + password ---- */
 
+const ROLES = ["policyholder", ...STAFF_ROLES];
+const ROLE_LABEL = { policyholder: "Policyholder", verifier: "Verifier", admin: "Admin", auditor: "Auditor" };
+
+/**
+ * POST /api/auth/login  { email, password, role }
+ * The login page asks which role you're signing in as; the account must
+ * hold that role. Staff still keep a wallet_address: it isn't used to sign
+ * in any more, only to sign their on-chain actions with MetaMask.
+ */
 async function login(req, res) {
-  const { walletAddress } = req.body;
-  if (!walletAddress)
-    return res.status(400).json({ error: "Wallet address required" });
+  const { email, password, role } = req.body;
+  if (!email || !password || !role)
+    return res.status(400).json({ error: "email, password and role are required" });
+  if (!ROLES.includes(role))
+    return res.status(400).json({ error: "Invalid role" });
 
-  const user = await db.one("SELECT * FROM users WHERE wallet_address = $1", [walletAddress.toLowerCase()]);
+  const user = await db.one("SELECT * FROM users WHERE email = $1", [String(email).toLowerCase()]);
+  if (!user || !(await checkPassword(password, user.password_hash)))
+    return res.status(401).json({ error: "Invalid email or password" });
 
-  if (!user)
-    return res
-      .status(404)
-      .json({ error: "Wallet not registered in the system" });
-
-  if (user.role === "policyholder")
-    return res.status(400).json({ error: "Policyholders log in with email and password, not a wallet" });
+  // The password was right, so naming the account's actual role leaks nothing.
+  if (user.role !== role)
+    return res.status(403).json({
+      error: `This is a${user.role === "admin" || user.role === "auditor" ? "n" : ""} ${ROLE_LABEL[user.role]} account. Choose ${ROLE_LABEL[user.role]} to sign in.`,
+    });
 
   if (user.is_active === false)
     return res.status(403).json({ error: "This account has been deactivated" });
 
-  const token = jwt.sign(
-    { wallet: walletAddress, role: user.role, userId: user.id },
-    process.env.JWT_SECRET,
-    { expiresIn: "8h" }
-  );
+  const claims = { userId: user.id, role: user.role, name: user.full_name };
+  if (user.role === "policyholder") claims.holderId = user.holder_id;
+  const token = jwt.sign(claims, process.env.JWT_SECRET, { expiresIn: "8h" });
 
-  res.json({ token, role: user.role, name: user.full_name, userId: user.id });
+  res.json({
+    token,
+    role: user.role,
+    name: user.full_name,
+    userId: user.id,
+    holderId: user.holder_id || undefined,
+    walletAddress: user.wallet_address || undefined,
+  });
 }
 
-async function register(req, res) {
-  const { walletAddress, fullName, email, role } = req.body;
+/* ---- Admin: create a staff account (email + password, plus the wallet that signs on-chain) ---- */
 
-  if (!walletAddress || !role)
-    return res
-      .status(400)
-      .json({ error: "walletAddress and role are required" });
+async function register(req, res) {
+  const { walletAddress, fullName, email, password, role } = req.body;
+
+  if (!email || !password || !role || !walletAddress)
+    return res.status(400).json({ error: "email, password, role and walletAddress are required" });
 
   if (!STAFF_ROLES.includes(role))
     return res
       .status(400)
-      .json({ error: "This endpoint registers staff only (verifier, admin, auditor) — policyholders self-register with email and password" });
+      .json({ error: "This endpoint creates staff only (verifier, admin, auditor) — policyholders register themselves" });
 
   try {
     const data = await db.one(
-      `INSERT INTO users (wallet_address, full_name, email, role) VALUES ($1, $2, $3, $4)
+      `INSERT INTO users (wallet_address, password_hash, full_name, email, role) VALUES ($1, $2, $3, $4, $5)
        RETURNING id, wallet_address, full_name, email, role, is_active, created_at`,
-      [walletAddress.toLowerCase(), fullName, email, role]
+      [walletAddress.toLowerCase(), await hashPassword(password), fullName, String(email).toLowerCase(), role]
     );
     res.status(201).json({ user: data });
   } catch (err) {
+    if (err.code === "23505") return res.status(400).json({ error: "An account with this email or wallet already exists" });
     res.status(400).json({ error: err.message || "Failed to register user" });
   }
 }
 
-/* ---- Policyholder (email + password) — hybrid signing model ---- */
+/* ---- Policyholder self-registration ---- */
 
 const PROFILE_COLUMNS = "id, holder_id, full_name, email, role, is_active, created_at";
 
@@ -82,8 +99,6 @@ async function registerPolicyholder(req, res) {
   const { email, password, fullName } = req.body;
   if (!email || !password || !fullName)
     return res.status(400).json({ error: "email, password and fullName are required" });
-  if (password.length < 8)
-    return res.status(400).json({ error: "Password must be at least 8 characters" });
 
   // The account id is made here so the holderId can be derived from it in the same insert.
   const id = crypto.randomUUID();
@@ -91,34 +106,13 @@ async function registerPolicyholder(req, res) {
     const profile = await db.one(
       `INSERT INTO users (id, holder_id, password_hash, full_name, email, role)
        VALUES ($1, $2, $3, $4, $5, 'policyholder') RETURNING ${PROFILE_COLUMNS}`,
-      [id, deriveHolderId(id), await hashPassword(password), fullName, email.toLowerCase()]
+      [id, deriveHolderId(id), await hashPassword(password), fullName, String(email).toLowerCase()]
     );
     res.status(201).json({ user: profile });
   } catch (err) {
     if (err.code === "23505") return res.status(400).json({ error: "An account with this email already exists" });
     res.status(400).json({ error: err.message || "Failed to create account" });
   }
-}
-
-async function loginPolicyholder(req, res) {
-  const { email, password } = req.body;
-  if (!email || !password)
-    return res.status(400).json({ error: "email and password are required" });
-
-  const profile = await db.one("SELECT * FROM users WHERE email = $1 AND role = 'policyholder'", [email.toLowerCase()]);
-  if (!profile || !(await checkPassword(password, profile.password_hash)))
-    return res.status(401).json({ error: "Invalid email or password" });
-
-  if (profile.is_active === false)
-    return res.status(403).json({ error: "This account has been deactivated" });
-
-  const token = jwt.sign(
-    { userId: profile.id, role: "policyholder", holderId: profile.holder_id, name: profile.full_name },
-    process.env.JWT_SECRET,
-    { expiresIn: "8h" }
-  );
-
-  res.json({ token, role: "policyholder", name: profile.full_name, userId: profile.id, holderId: profile.holder_id });
 }
 
 /* ---- Admin: user management (both staff and policyholders) ---- */
@@ -150,7 +144,7 @@ async function updateUser(req, res) {
     if (crossesBoundary)
       return res.status(400).json({
         error:
-          "Cannot change role across the policyholder/staff boundary — policyholders use email+password identity, staff use a wallet address. Create a new account instead.",
+          "Cannot change role across the policyholder/staff boundary — policyholders are identified on-chain by a holder ID, staff by their wallet. Create a new account instead.",
       });
     updates.role = role;
   }
@@ -173,7 +167,6 @@ module.exports = {
   login,
   register,
   registerPolicyholder,
-  loginPolicyholder,
   getUsers,
   updateUser,
 };

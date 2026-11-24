@@ -24,7 +24,7 @@ import TypeFilter from "@/components/insurance/TypeFilter";
 import { Fragment } from "react";
 
 export default function AuditorDashboard() {
-  const { wallet } = useRole();
+  const { token } = useRole();
   const { flagClaim } = useClaimRegistry();
   const [claims, setClaims] = useState<Claim[]>([]);
   const [typeFilter, setTypeFilter] = useState<InsuranceType | "All">("All");
@@ -34,13 +34,13 @@ export default function AuditorDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (wallet) loadClaims();
+    if (token) loadClaims();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet]);
+  }, [token]);
 
   async function loadClaims() {
     try {
-      const d = await apiFetch("/api/claims/all", {}, wallet);
+      const d = await apiFetch("/api/claims/all", {}, token);
       setClaims(d.claims || []);
     } catch {
       setClaims([]);
@@ -113,7 +113,7 @@ export default function AuditorDashboard() {
       </div>
 
       <div className="card enter enter-3 overflow-hidden">
-        {loading && !!wallet ? (
+        {loading && !!token ? (
           <div className="space-y-2 p-4" aria-busy>
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="skeleton h-12" />
@@ -204,7 +204,7 @@ export default function AuditorDashboard() {
                         <tr className="!bg-transparent">
                           <td colSpan={6} className="!border-b !border-[var(--divider-stroke)] bg-[var(--card-fill-secondary)] !px-6 !py-5">
                             <p className="mb-4 t-caption font-semibold text-fg-2">On-chain history — claim #{selectedClaimId}</p>
-                            <AuditTrailTable claimId={selectedClaimId!} walletAddress={wallet} />
+                            <AuditTrailTable claimId={selectedClaimId!} token={token} />
                           </td>
                         </tr>
                       )}

@@ -411,7 +411,7 @@ export default function Home() {
             Ready to see your claim, verified?
           </h2>
           <p className="mx-auto mt-4 max-w-lg t-body-large text-white/75">
-            Policyholders sign in with email. Staff connect a MetaMask wallet — no password needed.
+            Everyone signs in with email and password. Staff sign their on-chain decisions with their own MetaMask wallet.
           </p>
           <div className="mt-9 flex flex-wrap justify-center gap-3">
             <Link

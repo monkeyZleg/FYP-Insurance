@@ -5,9 +5,9 @@
  *   client.ts     the one place that calls fetch
  *
  * Pages import from here:
- *   import { loginPolicyholder } from "@/api";
- *   const result = await loginPolicyholder(email, password);
- *   if (!result.ok) return setError(result.error);   // also logged in the console as [api:auth.loginPolicyholder]
+ *   import { authApi } from "@/api";
+ *   const result = await authApi.login(email, password, "policyholder");
+ *   if (!result.ok) return setError(result.error);   // also logged in the console as [api:auth.login]
  *   result.data.token ...
  */
 export * from "./client";

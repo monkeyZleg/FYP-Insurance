@@ -23,7 +23,7 @@ function ageLabel(iso: string) {
 }
 
 export default function VerifierQueue() {
-  const { wallet, userName, userId } = useRole();
+  const { token, userName, userId } = useRole();
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<InsuranceType | "All">("All");
@@ -31,7 +31,7 @@ export default function VerifierQueue() {
 
   async function loadClaims() {
     try {
-      const data = await apiFetch("/api/claims/all", {}, wallet);
+      const data = await apiFetch("/api/claims/all", {}, token);
       const all: Claim[] = data.claims || [];
       const today = new Date().toDateString();
       setReviewedToday(
@@ -51,9 +51,9 @@ export default function VerifierQueue() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (wallet) loadClaims();
+    if (token) loadClaims();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet]);
+  }, [token]);
 
   const filtered = useMemo(
     () => (typeFilter === "All" ? claims : claims.filter((c) => c.insurance_type === typeFilter)),
@@ -83,7 +83,7 @@ export default function VerifierQueue() {
         <TypeFilter value={typeFilter} onChange={setTypeFilter} counts={counts} />
       </div>
 
-      {loading && !!wallet ? (
+      {loading && !!token ? (
         <div className="space-y-3" aria-busy>
           {[0, 1, 2].map((i) => (
             <div key={i} className="skeleton h-24" />

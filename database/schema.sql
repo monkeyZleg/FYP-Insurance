@@ -1,20 +1,21 @@
 -- BEICVS Database Schema (Aiven for PostgreSQL)
 -- Run these statements against the Aiven service (defaultdb).
 --
--- Hybrid signing model (Option B): policyholders authenticate with
--- email + password (scrypt hash in users.password_hash) and are represented on-chain by a
--- pseudonymous holder_id, never a wallet address. Staff (verifier,
--- admin, auditor) still authenticate with MetaMask and keep a
--- wallet_address. See smart-contract-spec-hybrid.md.
+-- Every role signs in with email + password (scrypt hash in
+-- users.password_hash). On-chain, policyholders are a pseudonymous holder_id
+-- (the backend relayer signs for them), while staff (verifier, admin,
+-- auditor) keep a wallet_address that signs their own actions with MetaMask.
+-- See smart-contract-spec-hybrid.md.
 
 -- Users table
 CREATE TABLE users (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  -- Staff only (verifier/admin/auditor). NULL for policyholders.
+  -- Staff only (verifier/admin/auditor): the wallet that signs their
+  -- on-chain actions. NULL for policyholders.
   wallet_address  TEXT UNIQUE,
-  -- Policyholders only: the password hash ("salt:hash", scrypt) and the
-  -- pseudonymous on-chain identifier derived from users.id. NULL for staff.
+  -- Login password for every role ("salt:hash", scrypt).
   password_hash   TEXT,
+  -- Policyholders only: pseudonymous on-chain identifier derived from users.id.
   holder_id       TEXT UNIQUE,
   full_name       TEXT,
   email           TEXT UNIQUE,
@@ -24,7 +25,7 @@ CREATE TABLE users (
   CONSTRAINT users_identity_check CHECK (
     (role = 'policyholder' AND password_hash IS NOT NULL AND holder_id IS NOT NULL AND wallet_address IS NULL)
     OR
-    (role <> 'policyholder' AND wallet_address IS NOT NULL AND password_hash IS NULL AND holder_id IS NULL)
+    (role <> 'policyholder' AND wallet_address IS NOT NULL AND holder_id IS NULL)
   )
 );
 

@@ -27,7 +27,7 @@ export default function VerifierReviewPage() {
   const params = useParams();
   const router = useRouter();
   const claimId = params.id as string;
-  const { wallet, userId } = useRole();
+  const { token, userId } = useRole();
   const { decideClaim, quoteServiceCharge } = useClaimRegistry();
 
   const [claim, setClaim] = useState<Claim | null>(null);
@@ -41,12 +41,12 @@ export default function VerifierReviewPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!wallet || !claimId) return;
-    apiFetch(`/api/claims/${claimId}`, {}, wallet).then((d) => setClaim(d.claim));
-    apiFetch(`/api/documents/${claimId}`, {}, wallet)
+    if (!token || !claimId) return;
+    apiFetch(`/api/claims/${claimId}`, {}, token).then((d) => setClaim(d.claim));
+    apiFetch(`/api/documents/${claimId}`, {}, token)
       .then((d) => setDocuments(d.documents || []))
       .catch(() => setDocuments([]));
-    apiFetch("/api/claims/all", {}, wallet)
+    apiFetch("/api/claims/all", {}, token)
       .then((d) =>
         setHistory(
           (d.claims || []).filter(
@@ -55,7 +55,7 @@ export default function VerifierReviewPage() {
         )
       )
       .catch(() => setHistory([]));
-  }, [claimId, wallet, userId]);
+  }, [claimId, token, userId]);
 
   // Integrity: the server re-hashes the stored form details and files and compares
   // them with the hashes the contract recorded at submission.
@@ -114,7 +114,7 @@ export default function VerifierReviewPage() {
       // Only the remark text needs the database (the chain keeps its hash). The
       // server stores it only if it matches that on-chain hash.
       try {
-        await apiFetch(`/api/claims/${claim.id}/remark`, { method: "PATCH", body: JSON.stringify({ remark }) }, wallet);
+        await apiFetch(`/api/claims/${claim.id}/remark`, { method: "PATCH", body: JSON.stringify({ remark }) }, token);
       } catch (err) {
         setError(
           `Your decision is recorded on-chain, but the remark text could not be saved: ${err instanceof Error ? err.message : "unknown error"}`

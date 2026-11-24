@@ -1,6 +1,6 @@
 import { LOG_SUCCESS } from "./config";
 
-/** Every controller logs under its own name, e.g. "auth.loginPolicyholder". */
+/** Every controller logs under its own name, e.g. "auth.login". */
 export function logApiError(name: string, error: unknown, extra?: Record<string, unknown>) {
   const e = error as { status?: number; method?: string; url?: string; message?: string };
   console.error(`[api:${name}] FAILED`, {

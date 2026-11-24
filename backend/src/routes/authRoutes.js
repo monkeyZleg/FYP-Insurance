@@ -4,19 +4,16 @@ const {
   login,
   register,
   registerPolicyholder,
-  loginPolicyholder,
   getUsers,
   updateUser,
 } = require("../controllers/authController");
 const rbac = require("../middleware/rbacMiddleware");
 
-// Staff (MetaMask wallet)
+// Every role signs in with email + password + the role they're signing in as.
 router.post("/login", login);
+// Admin creates staff accounts; policyholders register themselves.
 router.post("/register", rbac("admin"), register);
-
-// Policyholder (email + password, Supabase Auth — hybrid signing model)
 router.post("/policyholder/register", registerPolicyholder);
-router.post("/policyholder/login", loginPolicyholder);
 
 router.get("/users", rbac("admin"), getUsers);
 router.patch("/users/:id", rbac("admin"), updateUser);

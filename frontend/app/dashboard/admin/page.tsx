@@ -31,19 +31,19 @@ const STATUS_FILL: Record<string, string> = {
 };
 
 export default function AdminOverview() {
-  const { wallet } = useRole();
+  const { token } = useRole();
   const [claims, setClaims] = useState<Claim[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
-    if (!wallet) return;
-    apiFetch("/api/claims/all", {}, wallet)
+    if (!token) return;
+    apiFetch("/api/claims/all", {}, token)
       .then((d) => setClaims(d.claims || []))
       .catch(() => setClaims([]));
-    apiFetch("/api/auth/users", {}, wallet)
+    apiFetch("/api/auth/users", {}, token)
       .then((d) => setUsers(d.users || []))
       .catch(() => setUsers([]));
-  }, [wallet]);
+  }, [token]);
 
   const usersByRole = useMemo(() => {
     const counts: Record<string, number> = { policyholder: 0, verifier: 0, admin: 0, auditor: 0 };

@@ -15,7 +15,7 @@ import InfoBar from "@/components/ui/InfoBar";
 import Spinner from "@/components/ui/Spinner";
 
 export default function HashIntegrityCheckerPage() {
-  const { wallet } = useRole();
+  const { token } = useRole();
   const [claimId, setClaimId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -36,7 +36,7 @@ export default function HashIntegrityCheckerPage() {
     try {
       // The server recomputes the hash of the stored form details and files and
       // compares them with the hashes the contract recorded at submission.
-      const { claim } = await apiFetch(`/api/claims/${claimId.trim()}`, {}, wallet);
+      const { claim } = await apiFetch(`/api/claims/${claimId.trim()}`, {}, token);
       if (!claim.on_chain_claim_id || !claim.integrity) throw new Error("This claim has not been recorded on-chain yet.");
 
       setResult({

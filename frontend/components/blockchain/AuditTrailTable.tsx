@@ -8,20 +8,20 @@ import EmptyState from "@/components/ui/EmptyState";
 /** On-chain events for one claim, drawn as a vertical ledger of blocks. */
 export default function AuditTrailTable({
   claimId,
-  walletAddress,
+  token,
 }: {
   claimId: string;
-  walletAddress: string;
+  token: string;
 }) {
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch(`/api/blockchain/audit/${claimId}`, {}, walletAddress)
+    apiFetch(`/api/blockchain/audit/${claimId}`, {}, token)
       .then(setEvents)
       .catch(() => setEvents([]))
       .finally(() => setLoading(false));
-  }, [claimId, walletAddress]);
+  }, [claimId, token]);
 
   if (loading) {
     return (

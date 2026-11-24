@@ -1,12 +1,10 @@
 const jwt = require("jsonwebtoken");
 
 /**
- * Bearer-JWT auth for policyholders (email + password).
- * Policyholders have no wallet in the hybrid signing model, so they can't
- * use the x-wallet-address header rbacMiddleware relies on for staff.
- * The JWT is minted at login (see authController.loginPolicyholder) and
- * carries {userId, role: 'policyholder', holderId, name} directly, so no
- * DB lookup is needed per request.
+ * Bearer-JWT auth for policyholder-only routes.
+ * The JWT is minted at login (see authController.login) and carries
+ * {userId, role: 'policyholder', holderId, name} directly, so no DB lookup
+ * is needed per request.
  */
 function policyholderAuth(req, res, next) {
   const authHeader = req.headers.authorization;
