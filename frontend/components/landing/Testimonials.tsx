@@ -1,5 +1,5 @@
 "use client";
-import { ChevronLeftRegular, ChevronRightRegular, PauseRegular, PlayRegular } from "@fluentui/react-icons";
+import { ChevronLeftRegular, ChevronRightRegular } from "@fluentui/react-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 // Demo personas, one per role. All ChainIns data is simulated, and the section
@@ -45,8 +45,8 @@ function initials(s: string) {
  * Feedback carousel: one quote at a time, crossfading every 15 seconds.
  * All quotes share one grid cell so the section never changes height;
  * the outgoing quote fades up and out while the next fades in. Auto-advance
- * keeps running wherever you are on the page, and stops only for the pause
- * button, keyboard focus inside the carousel, a hidden tab, and reduced motion.
+ * keeps running wherever you are on the page, and stops only for keyboard
+ * focus inside the carousel, a hidden tab, and reduced motion.
  * The arrows and dots jump to a quote and restart its 15 seconds.
  *
  * It deliberately does NOT pause on hover: after scrolling with a wheel the
@@ -54,7 +54,6 @@ function initials(s: string) {
  */
 export default function Testimonials({ serifClassName = "" }: { serifClassName?: string }) {
   const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false); // pause button
   const [focused, setFocused] = useState(false); // keyboard focus inside
   const [reduced, setReduced] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -77,10 +76,11 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
 
   const go = useCallback((i: number) => setIndex((i + FEEDBACK.length) % FEEDBACK.length), []);
 
-  const still = paused || focused || reduced || hidden;
+  const still = focused || reduced || hidden;
 
-  // Time left on the current quote: a pause freezes it, resuming continues it,
-  // a new quote starts a full hold. The pill's fill animation pauses in step.
+  // Time left on the current quote: keyboard focus freezes it, losing focus
+  // continues it, a new quote starts a full hold. The pill's fill animation
+  // pauses in step.
   const left = useRef(HOLD_MS);
   const shown = useRef(index);
   useEffect(() => {
@@ -189,17 +189,6 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
               );
             })}
           </div>
-          {!reduced && (
-            <button
-              type="button"
-              onClick={() => setPaused((v) => !v)}
-              className="btn btn-subtle btn-icon btn-sm text-fg-2"
-              aria-label={paused ? "Play feedback slideshow" : "Pause feedback slideshow"}
-              title={paused ? "Play" : "Pause"}
-            >
-              {paused ? <PlayRegular /> : <PauseRegular />}
-            </button>
-          )}
         </div>
         <p className="mt-6 t-caption text-fg-3">Illustrative feedback from the four demo roles — ChainIns is a student project.</p>
       </div>
