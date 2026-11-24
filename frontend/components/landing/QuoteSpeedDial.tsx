@@ -86,7 +86,7 @@ export default function QuoteSpeedDial() {
       ref={rootRef}
       // The root ignores the pointer so the empty space where the closed actions
       // sit doesn't open the dial; only the button, bubble and open actions do.
-      className="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col items-center"
+      className="pointer-events-none fixed bottom-6 right-6 z-50 sm:bottom-10 sm:right-10 flex flex-col items-center"
       onPointerEnter={(e) => e.pointerType === "mouse" && setHovered(true)}
       onPointerLeave={(e) => e.pointerType === "mouse" && setHovered(false)}
       onKeyDown={(e) => {
