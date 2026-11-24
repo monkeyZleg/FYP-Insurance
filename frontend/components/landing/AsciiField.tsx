@@ -177,5 +177,8 @@ export default function AsciiField({ className = "" }: { className?: string }) {
     };
   }, []);
 
-  return <canvas ref={canvasRef} aria-hidden className={className} />;
+  // <canvas> is a replaced element: `inset-0` alone pins its top-left corner
+  // but won't stretch it like a <div> — it keeps the 300x150 intrinsic
+  // default. `block h-full w-full` is what actually makes it fill its box.
+  return <canvas ref={canvasRef} aria-hidden className={`block h-full w-full ${className}`} />;
 }

@@ -225,7 +225,7 @@ export default function Home() {
 
       {/* ------------------------------------------------------------- Hero */}
       <section ref={heroRef} className="relative isolate pt-32 pb-24 sm:pt-40 lg:pb-32">
-        <AsciiField className="pointer-events-none absolute inset-0 -z-20 [mask-image:radial-gradient(closest-side,#000_70%,transparent)]" />
+        <AsciiField className="pointer-events-none absolute inset-0 -z-20 [mask-image:linear-gradient(to_bottom,#000_0%,#000_80%,transparent_100%)]" />
         <div aria-hidden className="pointer-events-none absolute bottom-[-6%] left-1/2 -z-10 w-[980px] max-w-none -translate-x-1/2 opacity-[0.4]">
           <Bloom className="w-full blur-[3px] [mask-image:radial-gradient(closest-side,#000_45%,transparent)]" />
         </div>
