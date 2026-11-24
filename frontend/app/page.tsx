@@ -269,7 +269,7 @@ export default function Home() {
             </a>
           </div>
 
-          <div id="get-quote" className="hero-fade mx-auto mt-14 max-w-[760px] scroll-mt-28">
+          {/* <div id="get-quote" className="hero-fade mx-auto mt-14 max-w-[760px] scroll-mt-28">
             <h2 className="t-body-strong text-fg">Get a free quote now</h2>
             <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {QUOTE_TILES.map((t) => (
@@ -282,7 +282,7 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-          </div>
+          </div> */}
         </div>
 
         <div className="hero-visual mt-16 px-4">
@@ -619,7 +619,7 @@ function SiteNav() {
   }, []);
 
   const links = [
-    { href: "#get-quote", label: "Get a quote" },
+    // { href: "#get-quote", label: "Get a quote" },
     { href: "#how-it-works", label: "How it works" },
     { href: "#try-it", label: "Try it" },
     { href: "#for-roles", label: "For insurers" },
