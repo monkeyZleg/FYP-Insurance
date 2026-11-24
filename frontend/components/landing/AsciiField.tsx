@@ -60,10 +60,15 @@ export default function AsciiField({ className = "" }: { className?: string }) {
     const reader = makeColorReader();
     let dim: [number, number, number] = [0, 0, 0];
     let glow: [number, number, number] = [0, 0, 0];
+    // Frames that would paint exactly what's already on the canvas are skipped,
+    // so nothing above it (like the frosted headline pane) has to recomposite
+    // while the cursor is away or resting still. "" forces the next paint.
+    let painted = "";
 
     function readColors() {
       dim = reader.read("--text-tertiary");
       glow = reader.read("--accent-light-2");
+      painted = "";
     }
     readColors();
     const themeObserver = new MutationObserver(readColors);
@@ -79,6 +84,7 @@ export default function AsciiField({ className = "" }: { className?: string }) {
       canvas!.width = Math.round(width * dpr);
       canvas!.height = Math.round(height * dpr);
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      painted = "";
     }
     resize();
     window.addEventListener("resize", resize);
@@ -106,8 +112,6 @@ export default function AsciiField({ className = "" }: { className?: string }) {
 
     let raf = 0;
     function draw() {
-      ctx!.clearRect(0, 0, width, height);
-
       if (targetX !== null && targetY !== null) {
         curX += (targetX - curX) * 0.16;
         curY += (targetY - curY) * 0.16;
@@ -115,6 +119,14 @@ export default function AsciiField({ className = "" }: { className?: string }) {
       } else {
         influence += (0 - influence) * 0.1;
       }
+
+      const state = influence > 0.01 ? `${curX.toFixed(1)},${curY.toFixed(1)},${influence.toFixed(3)}` : "rest";
+      if (state === painted) {
+        raf = requestAnimationFrame(draw);
+        return;
+      }
+      painted = state;
+      ctx!.clearRect(0, 0, width, height);
 
       // The "turns lighter" halo: a soft radial wash that rides with the cursor.
       if (influence > 0.01) {

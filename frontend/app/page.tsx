@@ -26,6 +26,7 @@ import Persona from "@/components/ui/Persona";
 import { ThemeCycleButton } from "@/components/ui/ThemeSwitcher";
 import Bloom from "@/components/landing/Bloom";
 import AsciiField from "@/components/landing/AsciiField";
+import QuoteSpeedDial from "@/components/landing/QuoteSpeedDial";
 import TamperDemo from "@/components/landing/TamperDemo";
 import Testimonials from "@/components/landing/Testimonials";
 import ClaimStatusTracker from "@/components/claims/ClaimStatusTracker";
@@ -237,19 +238,27 @@ export default function Home() {
               <span className="hidden sm:inline">Blockchain-Enhanced </span>Insurance Claim Verification
             </span>
           </p>
-          <h1 className={`${serif.className} mt-7 text-[clamp(40px,7.4vw,92px)] font-medium leading-[0.98] tracking-[-0.03em] text-fg`}>
-            {/* padding keeps the descenders inside the reveal mask; the negative margin takes it back */}
-            <span className="block overflow-hidden pb-[0.22em]">
-              <span className="hero-line block">Claims you can verify,</span>
-            </span>
-            <span className="-mt-[0.2em] block overflow-hidden pb-[0.22em]">
-              <span className="hero-line block italic">not just trust.</span>
-            </span>
-          </h1>
-          <p className="hero-fade mx-auto mt-5 max-w-[540px] t-body-large text-fg-2">
-            A tamper-proof, independently verifiable audit trail for insurance claims, anchored on the Ethereum
-            blockchain.
-          </p>
+          <div className="relative mt-7">
+            {/* Frosted pane: no fill, just a heavy blur of the ascii grid behind the
+                headline, feathered on all four edges so there's no visible box. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -inset-x-16 -inset-y-10 -z-10 backdrop-blur-xl [mask-image:linear-gradient(to_right,transparent,#000_14%,#000_86%,transparent),linear-gradient(to_bottom,transparent,#000_18%,#000_82%,transparent)] [mask-composite:intersect]"
+            />
+            <h1 className={`${serif.className} text-[clamp(40px,7.4vw,92px)] font-medium leading-[0.98] tracking-[-0.03em] text-fg`}>
+              {/* padding keeps the descenders inside the reveal mask; the negative margin takes it back */}
+              <span className="block overflow-hidden pb-[0.22em]">
+                <span className="hero-line block">Claims you can verify,</span>
+              </span>
+              <span className="-mt-[0.2em] block overflow-hidden pb-[0.22em]">
+                <span className="hero-line block italic">not just trust.</span>
+              </span>
+            </h1>
+            <p className="hero-fade mx-auto mt-5 max-w-[540px] t-body-large text-fg-2">
+              A tamper-proof, independently verifiable audit trail for insurance claims, anchored on the Ethereum
+              blockchain.
+            </p>
+          </div>
           <div className="hero-fade mt-9 flex flex-wrap items-center justify-center gap-3">
             <Link href="/login" className="btn btn-accent btn-xl nudge !rounded-full">
               Log in
@@ -432,6 +441,7 @@ export default function Home() {
         </div>
       </footer>
 
+      <QuoteSpeedDial />
     </main>
   );
 }

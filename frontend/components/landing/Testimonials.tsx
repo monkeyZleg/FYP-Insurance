@@ -174,12 +174,15 @@ export default function Testimonials({ serifClassName = "" }: { serifClassName?:
                     }`}
                   >
                     {on && (
+                      // Full-width bar slid in with translateX (composited, sub-pixel
+                      // smooth) rather than a width animation, which steps one whole
+                      // pixel at a time across a 32px pill over 15s and looks choppy.
                       <span
                         key={index}
-                        className="absolute inset-y-0 left-0 rounded-full bg-[var(--accent-fill)]"
+                        className="absolute inset-0 rounded-full bg-[var(--accent-fill)] will-change-transform"
                         style={
                           reduced
-                            ? { width: "100%" }
+                            ? undefined
                             : { animation: `feedback-fill ${HOLD_MS}ms linear both`, animationPlayState: still ? "paused" : "running" }
                         }
                       />
