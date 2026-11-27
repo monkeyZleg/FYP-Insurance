@@ -15,7 +15,7 @@ const ACTIONS = [
 const SHOW_AT = 3500; // ms after load before the button pops in
 const BUBBLE_AFTER = 450; // ms after the pop, once the button has landed
 const BUBBLE_FOR = 4000; // ms the "Get a free quote?" bubble stays up
-const BUBBLE_OUT = 300; // ms, matches the dial-out animation below
+// const BUBBLE_OUT = 300; // ms, matches the dial-out animation below
 
 /**
  * Floating quote shortcut, modelled on MUI's basic SpeedDial: a round button
@@ -55,7 +55,7 @@ export default function QuoteSpeedDial() {
   // Unmount the bubble once its exit animation has played.
   useEffect(() => {
     if (bubble !== "out") return;
-    const id = setTimeout(() => setBubble("none"), BUBBLE_OUT);
+    const id = setTimeout(() => setBubble("none"));
     return () => clearTimeout(id);
   }, [bubble]);
 
@@ -133,16 +133,14 @@ export default function QuoteSpeedDial() {
       </ul>
 
       <div className="relative">
-        {bubble !== "none" && (
+        {/* {bubble !== "none" && ( */}
           <button
             type="button"
             onClick={() => setPinned(true)}
             className="pointer-events-auto absolute right-full top-1/2 mr-4 -translate-y-1/2 origin-bottom-right whitespace-nowrap rounded-2xl border border-[var(--card-stroke)] bg-[var(--solid-quarternary)] px-4 py-2.5 t-body-strong text-fg shadow-flyout"
             style={{
-              animation:
-                bubble === "in"
-                  ? "dial-swing 900ms cubic-bezier(0.22,1,0.36,1) both"
-                  : `dial-out ${BUBBLE_OUT}ms ease-in both`,
+              animation:  "dial-swing 900ms cubic-bezier(0.22,1,0.36,1) both"
+                  ,
             }}
           >
             Get a free quote?
@@ -152,7 +150,7 @@ export default function QuoteSpeedDial() {
               className="absolute -right-[6px] top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border-r border-t border-[var(--card-stroke)] bg-[var(--solid-quarternary)]"
             />
           </button>
-        )}
+        {/* )} */}
 
         <button
           ref={fabRef}
