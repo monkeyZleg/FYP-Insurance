@@ -27,6 +27,8 @@ import {
   ReceiptSearchFilled,
   ReceiptSearchRegular,
   SearchRegular,
+  ShieldCheckmarkFilled,
+  ShieldCheckmarkRegular,
   SignOutRegular,
   TaskListSquareLtrFilled,
   TaskListSquareLtrRegular,
@@ -58,6 +60,7 @@ const NAV: Record<UserRole, NavGroup[]> = {
           iconActive: CartFilled,
           also: ["/dashboard/policyholder/policies/purchase"],
         },
+        { label: "Identity (eKYC)", href: "/dashboard/policyholder/ekyc", icon: ShieldCheckmarkRegular, iconActive: ShieldCheckmarkFilled },
       ],
     },
     {
